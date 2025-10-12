@@ -181,12 +181,20 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
     const templateURL = 'https://cdn.glitch.global/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973';
     
     try {
-        console.log(`Fetching Word template from: ${templateURL}`);
+        console.log(`🔄 Fetching Word template from: ${templateURL}`);
         const response = await fetch(templateURL);
-        if (!response.ok) throw new Error(`Fetch template failed: ${response.statusText}`);
         
+        if (!response.ok) {
+            console.error(`❌ Template fetch failed: ${response.status} ${response.statusText}`);
+            throw new Error(`Template fetch failed: ${response.status} ${response.statusText}`);
+        }
+        
+        console.log(`✅ Template fetched successfully, size: ${response.headers.get('content-length') || 'unknown'} bytes`);
         const templateContent = await response.arrayBuffer();
+        console.log(`✅ Template content loaded: ${templateContent.byteLength} bytes`);
+        
         const zip = new PizZip(templateContent);
+        console.log(`✅ PizZip created successfully`);
         
         // Module d'image temporairement désactivé pour éviter les vulnérabilités critiques
         const doc = new DocxTemplater(zip, {
@@ -195,20 +203,23 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
             nullGetter: () => ""
         });
         
+        console.log(`🔄 Preparing Word data for ${studentName}...`);
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
         const dataToRender = {
             ...documentData,
             image: "" // Pas d'image pour éviter les vulnérabilités
         };
         
-        console.log(`Rendering Word document for ${studentName}...`);
+        console.log(`🔄 Rendering Word document for ${studentName}... Data keys: ${Object.keys(dataToRender).length}`);
         doc.render(dataToRender);
+        console.log(`✅ Document rendered successfully`);
         
-        console.log(`Generating final buffer for ${studentName}...`);
+        console.log(`🔄 Generating final buffer for ${studentName}...`);
         const buffer = doc.getZip().generate({
             type: "nodebuffer",
             compression: "DEFLATE"
         });
+        console.log(`✅ Buffer generated: ${buffer.length} bytes`);
         
         return buffer;
     } catch (error) {
@@ -429,7 +440,8 @@ app.post('/api/generateSingleWord', async (req, res) => {
         }).toArray();
         
         if (studentContributions.length === 0) {
-            return res.status(404).json({ error: `Aucune contribution trouvée pour ${studentSelected}` });
+            console.warn(`⚠️ No contributions found for ${studentSelected}, generating empty document`);
+            // Permettre la génération d'un document vide plutôt que de retourner 404
         }
         
         // Récupérer la date de naissance
@@ -453,33 +465,60 @@ app.post('/api/generateSingleWord', async (req, res) => {
             studentContributions
         );
         
-        // Générer nom de fichier
+        // Générer nom de fichier pour le téléchargement
         const timestamp = Date.now();
         const safeStudentName = studentSelected.replace(/[\s/\\?%*:|"<>.]/g, '_');
         const docFileName = `Livret-${safeStudentName}-${timestamp}.docx`;
-        const docFilePath = path.join(PUBLIC_DIR, docFileName);
         
-        // Sauvegarder temporairement
-        fs.writeFileSync(docFilePath, docBuffer);
+        // VERCEL COMPATIBLE: Stream direct sans écriture de fichier
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="${docFileName}"`);
+        res.setHeader('Content-Length', docBuffer.length);
         
-        // Programmer la suppression
-        setTimeout(() => {
-            if (fs.existsSync(docFilePath)) {
-                fs.unlinkSync(docFilePath);
-                console.log(`Temporary file deleted: ${docFileName}`);
-            }
-        }, 30000); // 30 secondes
-        
-        res.json({
-            success: true,
-            filePath: `/${docFileName}`,
-            fileName: docFileName,
-            student: studentSelected
-        });
+        console.log(`✅ Streaming Word document for ${studentSelected} (${docBuffer.length} bytes)`);
+        res.send(docBuffer);
         
     } catch (error) {
         console.error('Error generating Word:', error);
         res.status(500).json({ error: `Erreur génération Word: ${error.message}` });
+    }
+});
+
+// Endpoint pour ajouter des données de test (temporaire pour débugger)
+app.post('/api/addTestData', async (req, res) => {
+    if (!isDbConnected) {
+        return res.status(500).json({ error: 'Database not connected' });
+    }
+    
+    try {
+        // Données de test pour Bilal
+        const testContribution = {
+            studentSelected: 'Bilal',
+            sectionSelected: 'garcons',
+            subjectSelected: 'Mathématiques',
+            teacherName: 'Professeur Test',
+            teacherComment: 'Excellent travail en mathématiques',
+            criteriaValues: {
+                A: { sem1: '6', sem2: '7', finalLevel: '7' },
+                B: { sem1: '5', sem2: '6', finalLevel: '6' },
+                C: { sem1: '7', sem2: '7', finalLevel: '7' },
+                D: { sem1: '6', sem2: '7', finalLevel: '7' }
+            },
+            communicationEvaluation: ['B', 'A', 'B', 'A', 'B']
+        };
+        
+        // Insérer ou mettre à jour
+        await contributionsCollection.replaceOne(
+            { studentSelected: 'Bilal', subjectSelected: 'Mathématiques' },
+            testContribution,
+            { upsert: true }
+        );
+        
+        res.json({ success: true, message: 'Données de test ajoutées pour Bilal' });
+        
+    } catch (error) {
+        console.error('Error adding test data:', error);
+        res.status(500).json({ error: error.message });
     }
 });
 
