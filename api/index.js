@@ -1,14 +1,17 @@
 // --- Dépendances ---
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
-require('dotenv').config();
+// Configuration dotenv uniquement en développement local
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 const fs = require('fs');
 const path = require('path');
 const PizZip = require("pizzip");
 const DocxTemplater = require("docxtemplater");
-const ImageModule = require('docxtemplater-image-module-free');
+// const ImageModule = require('docxtemplater-image-module-free'); // Temporairement désactivé pour éviter les vulnérabilités
 const fetch = require('node-fetch');
-const XLSX = require('xlsx');
+// const XLSX = require('xlsx'); // Temporairement désactivé pour éviter les vulnérabilités
 
 // --- Configuration ---
 const app = express();
@@ -24,9 +27,21 @@ app.use((req, res, next) => {
 // Servir les fichiers statiques AVANT les routes API
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Vérification et configuration des variables d'environnement
+console.log('🔧 Environment check:');
+console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
+console.log('VERCEL:', process.env.VERCEL ? 'true' : 'false');
+console.log('MONGODB_URI defined:', !!process.env.MONGODB_URI);
+
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const dbName = process.env.DB_NAME || 'teacherContributionsDB';
+
+// Validation critique des variables d'environnement
+if (!MONGODB_URI) {
+    console.error('❌ CRITICAL: MONGODB_URI environment variable is missing!');
+    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB')));
+}
 const contributionsCollectionName = 'contributions';
 const studentsCollectionName = 'students';
 const PUBLIC_DIR = path.join(__dirname, '../public');
@@ -173,25 +188,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const templateContent = await response.arrayBuffer();
         const zip = new PizZip(templateContent);
         
-        const pixels = 151;
-        const imageOpts = {
-            centered: false,
-            getSize: () => [pixels, pixels],
-            getImage: function(tagValue, tagName) {
-                if (!imageBuffer) {
-                    console.warn(`No image buffer for tag ${tagName}`);
-                    return null;
-                }
-                return imageBuffer;
-            },
-            errorLogger: function(error) {
-                console.error("ImageModule Error:", error);
-            }
-        };
-        
-        const imageModule = new ImageModule(imageOpts);
+        // Module d'image temporairement désactivé pour éviter les vulnérabilités critiques
         const doc = new DocxTemplater(zip, {
-            modules: [imageModule],
             paragraphLoop: true,
             linebreaks: true,
             nullGetter: () => ""
@@ -200,7 +198,7 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
         const dataToRender = {
             ...documentData,
-            image: imageBuffer ? 'placeholder_for_module' : ""
+            image: "" // Pas d'image pour éviter les vulnérabilités
         };
         
         console.log(`Rendering Word document for ${studentName}...`);
@@ -483,6 +481,27 @@ app.post('/api/generateSingleWord', async (req, res) => {
         console.error('Error generating Word:', error);
         res.status(500).json({ error: `Erreur génération Word: ${error.message}` });
     }
+});
+
+// Route de diagnostic pour débugger les problèmes Vercel
+app.get('/api/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        environment: {
+            NODE_ENV: process.env.NODE_ENV || 'development',
+            VERCEL: !!process.env.VERCEL,
+            MONGODB_URI_defined: !!MONGODB_URI,
+            DB_NAME: dbName
+        },
+        database: {
+            connected: isDbConnected,
+            collections: {
+                contributions: !!contributionsCollection,
+                students: !!studentsCollection
+            }
+        }
+    });
 });
 
 // Route pour la page principale (catch-all pour servir index.html)
