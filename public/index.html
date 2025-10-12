@@ -117,9 +117,15 @@
         </div>
     </main>
 
-   <script src="/socket.io/socket.io.js" defer></script>
+   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
    <script>
-        const socket = io();
+        const socket = io({
+            transports: ['websocket', 'polling'],
+            forceNew: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            maxReconnectionAttempts: 5
+        });
 
         let currentData = { contributionId: null, teacherName: localStorage.getItem('teacherName') || null, classSelected: null, sectionSelected: null, subjectSelected: null, studentSelected: null, studentBirthdate: null, studentPhoto: null, teacherComment: null, communicationEvaluation: ['', '', '', '', ''], criteriaValues: { A:{sem1:null,sem2:null,finalLevel:null},B:{sem1:null,sem2:null,finalLevel:null},C:{sem1:null,sem2:null,finalLevel:null},D:{sem1:null,sem2:null,finalLevel:null} } };
         let currentContributionId = null;
