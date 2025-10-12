@@ -1,27 +1,12 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "api/index.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "public/**/*",
-      "use": "@vercel/static"
-    }
+    { "src": "api/index.js", "use": "@vercel/node" },
+    { "src": "public/**/*", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "/socket.io/(.*)",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
-    }
+    { "src": "/socket.io/(.*)", "dest": "/api/index.js" },
+    { "src": "/(.*)", "dest": "/api/index.js" }
   ],
-  "env": {
-    "MONGODB_URI": "@mongodb_uri",
-    "DB_NAME": "teacherContributionsDB"
-  }
+  "maxDuration": 60
 }
