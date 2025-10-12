@@ -275,6 +275,52 @@
             }
         }
 
+        // Fonction spéciale pour télécharger les fichiers Word
+        async function downloadWordDocument(data) {
+            try {
+                const response = await fetch('/api/generateSingleWord', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Récupérer le nom du fichier depuis les headers
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `Livret-${data.studentSelected}-${Date.now()}.docx`;
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+                    if (filenameMatch) {
+                        filename = filenameMatch[1];
+                    }
+                }
+                
+                // Récupérer le contenu binaire
+                const blob = await response.blob();
+                
+                // Créer le lien de téléchargement
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                return { success: true, filename: filename };
+                
+            } catch (error) {
+                console.error(`Word download failed:`, error);
+                throw error;
+            }
+        }
+
         // Handlers de mise à jour des données
         function handleTeacherNameChange(value) {
             currentData.teacherName = value.trim();
@@ -876,7 +922,7 @@
                 progressBar.style.width = currentProgress + '%';
 
                 try {
-                    const result = await apiCall('generateSingleWord', {
+                    const result = await downloadWordDocument({
                         studentSelected: studentName,
                         classSelected: classe,
                         sectionSelected: section,
@@ -884,7 +930,7 @@
                     });
 
                     if (result.success) {
-                        handleDownloadLink(result);
+                        // Le fichier est automatiquement téléchargé, pas besoin de handleDownloadLink
                         successCount++;
                     } else {
                         throw new Error(result.error || 'Erreur génération');
