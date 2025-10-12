@@ -15,6 +15,15 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Logging middleware pour débugger
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
+    next();
+});
+
+// Servir les fichiers statiques AVANT les routes API
+app.use(express.static(path.join(__dirname, '../public')));
+
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
 const dbName = process.env.DB_NAME || 'teacherContributionsDB';
@@ -476,9 +485,31 @@ app.post('/api/generateSingleWord', async (req, res) => {
     }
 });
 
+// Route pour la page principale (catch-all pour servir index.html)
+app.get('/', (req, res) => {
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
+// Catch-all route pour servir index.html pour toutes les autres routes non-API
+app.get('*', (req, res) => {
+    // Si c'est une route API, laisser passer pour les middlewares suivants
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    // Sinon, servir index.html (pour SPA routing)
+    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+});
+
 // --- Démarrage ---
 connectToMongo().then(() => {
     console.log('✅ Server initialized successfully');
+    
+    // Démarrage local (seulement si pas dans Vercel)
+    if (require.main === module) {
+        app.listen(PORT, () => {
+            console.log(`🚀 Server running on port ${PORT}`);
+        });
+    }
 }).catch(err => {
     console.error('❌ Failed to initialize database:', err);
 });
