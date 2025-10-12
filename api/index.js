@@ -15,7 +15,14 @@ const XLSX = require('xlsx');
 // --- Configuration ---
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['websocket', 'polling'],
+    allowEIO3: true
+});
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -490,29 +497,40 @@ function fitToColumn(arrayOfArray) {
 app.use(express.static(PUBLIC_DIR));
 
 app.get('/', (req, res) => {
-    const indexPath = path.join(PUBLIC_DIR, 'index.html');
-    fs.access(indexPath, fs.constants.F_OK, (err) => {
-        if (err) {
-            console.error(`Error: ${indexPath} not found!`);
-            res.status(404).send("Fichier principal de l'application introuvable.");
-        } else {
-            res.sendFile(indexPath);
-        }
-    });
+    const indexPath = path.join(__dirname, '../public/index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send("Fichier principal de l'application introuvable.");
+    }
+});
+
+app.get('/styles.css', (req, res) => {
+    const cssPath = path.join(__dirname, '../public/styles.css');
+    if (fs.existsSync(cssPath)) {
+        res.setHeader('Content-Type', 'text/css');
+        res.sendFile(cssPath);
+    } else {
+        res.status(404).send("CSS file not found");
+    }
 });
 
 // --- Démarrage Serveur ---
 connectToMongo().then(() => {
-    server.listen(PORT, () => {
-        console.log(`✅ Server is running on port ${PORT}`);
-        console.log(`   Visit http://localhost:${PORT} in your browser.`);
-        console.log("Performing initial cleanup of export directories...");
-        cleanPublicDirectory('docx');
-        cleanPublicDirectory('xlsx');
-    });
+    if (process.env.NODE_ENV !== 'production') {
+        server.listen(PORT, () => {
+            console.log(`✅ Server is running on port ${PORT}`);
+            console.log(`   Visit http://localhost:${PORT} in your browser.`);
+            console.log("Performing initial cleanup of export directories...");
+            cleanPublicDirectory('docx');
+            cleanPublicDirectory('xlsx');
+        });
+    }
 }).catch(err => {
     console.error("❌ Failed to initialize database connection. Server not started.", err);
-    process.exit(1);
+    if (process.env.NODE_ENV !== 'production') {
+        process.exit(1);
+    }
 });
 
 // --- Arrêt propre ---
@@ -523,3 +541,6 @@ process.on('SIGINT', () => {
     process.exit(0);
   });
 });
+
+// Export pour Vercel
+module.exports = app;
