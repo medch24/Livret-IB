@@ -343,18 +343,12 @@ app.post('/api/fetchStudentInfo', async (req, res) => {
 
 // Enregistrer/Mettre à jour une contribution
 app.post('/api/saveContribution', async (req, res) => {
-    // Mode démo : si DB non connectée, simuler un enregistrement réussi
+    // Vérifier que la base de données est connectée
     if (!isDbConnected) {
-        console.log('⚠️ DB not connected, simulating successful save (demo mode)');
-        const { contributionId, studentBirthdate, studentPhoto, ...contribData } = req.body;
-        const simulatedId = contributionId || `demo-${Date.now()}`;
-        
-        // Retourner un succès simulé pour permettre à l'utilisateur de continuer
-        return res.json({ 
-            success: true, 
-            message: 'Contribution enregistrée localement (mode démo - base de données non connectée)', 
-            data: simulatedId,
-            demoMode: true
+        console.error('❌ Cannot save contribution: Database not connected');
+        return res.status(500).json({ 
+            success: false,
+            error: 'La base de données n\'est pas connectée. Veuillez vérifier la configuration.' 
         });
     }
     

@@ -744,12 +744,8 @@
                 const result = await apiCall('saveContribution', contributionData);
                 
                 if (result.success) {
-                    // Message différent selon le mode
-                    if (result.demoMode) {
-                        alert(`✅ Contribution enregistrée localement !\n\nℹ️ Mode démo : La base de données n'est pas connectée.\nLes données sont conservées localement pendant cette session.\n\n(ID: ${result.data})`);
-                    } else {
-                        alert(`✅ Contribution enregistrée avec succès !\n\n(ID: ${result.data})`);
-                    }
+                    // Confirmation d'enregistrement en base de données
+                    alert(`✅ Contribution enregistrée avec succès dans la base de données !\n\n(ID: ${result.data})`);
                     currentContributionId = result.data;
                     
                     if (currentData.studentSelected) {
