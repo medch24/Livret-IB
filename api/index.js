@@ -291,11 +291,16 @@ app.get('/api/test', (req, res) => {
 // Récupérer les données d'un élève/matière
 app.post('/api/fetchData', async (req, res) => {
     if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
+        console.log('⚠️ DB not connected, returning noDataForSubject for fetchData');
+        const { studentSelected } = req.body;
+        return res.json({ noDataForSubject: true, studentSelected });
     }
     
     try {
         const { studentSelected, subjectSelected } = req.body;
+        if (!studentSelected || !subjectSelected) {
+            return res.json({ noDataForSubject: true, studentSelected });
+        }
         const contribution = await contributionsCollection.findOne({ studentSelected, subjectSelected });
         const studentInfo = await studentsCollection.findOne({ studentSelected }, { projection: { studentBirthdate: 1 } });
         
@@ -306,18 +311,24 @@ app.post('/api/fetchData', async (req, res) => {
         }
     } catch (error) {
         console.error('Error fetching data:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération des données.' });
+        // Retourner un objet valide au lieu d'erreur 500
+        const { studentSelected } = req.body;
+        res.json({ noDataForSubject: true, studentSelected });
     }
 });
 
 // Récupérer les infos d'un élève
 app.post('/api/fetchStudentInfo', async (req, res) => {
     if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
+        console.log('⚠️ DB not connected, returning null for fetchStudentInfo');
+        return res.json(null); // Retourner null au lieu d'une erreur 500
     }
     
     try {
         const { studentSelected } = req.body;
+        if (!studentSelected) {
+            return res.json(null);
+        }
         const studentInfo = await studentsCollection.findOne(
             { studentSelected }, 
             { projection: { studentBirthdate: 1 } }
@@ -325,7 +336,8 @@ app.post('/api/fetchStudentInfo', async (req, res) => {
         res.json(studentInfo || null);
     } catch (error) {
         console.error('Error fetching student info:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération des infos élève.' });
+        // Retourner null au lieu d'erreur 500 pour permettre à l'app de continuer
+        res.json(null);
     }
 });
 
@@ -390,18 +402,23 @@ app.post('/api/saveContribution', async (req, res) => {
 // Récupérer les contributions d'un élève
 app.post('/api/fetchStudentContributions', async (req, res) => {
     if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
+        console.log('⚠️ DB not connected, returning empty array for fetchStudentContributions');
+        return res.json([]); // Retourner un tableau vide au lieu d'une erreur 500
     }
     
     try {
         const { student } = req.body;
+        if (!student) {
+            return res.json([]);
+        }
         const contributions = await contributionsCollection.find({ studentSelected: student })
             .sort({ subjectSelected: 1 })
             .toArray();
         res.json(contributions);
     } catch (error) {
         console.error('Error fetching student contributions:', error);
-        res.status(500).json({ error: 'Erreur lors de la récupération des contributions.' });
+        // Retourner un tableau vide au lieu d'erreur 500
+        res.json([]);
     }
 });
 
