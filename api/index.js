@@ -40,6 +40,13 @@ const dbName = process.env.DB_NAME || 'teacherContributionsDB';
 // Validation critique des variables d'environnement
 if (!MONGODB_URI) {
     console.error('❌ CRITICAL: MONGODB_URI environment variable is missing!');
+    console.error('📋 Please configure environment variables in Vercel:');
+    console.error('   1. Go to: https://vercel.com/dashboard');
+    console.error('   2. Select your project');
+    console.error('   3. Go to Settings > Environment Variables');
+    console.error('   4. Add: MONGODB_URI = mongodb+srv://mohamedsherif:Mmedch86@livret2026.9owu7hs.mongodb.net/?appName=Livret2026');
+    console.error('   5. Add: DB_NAME = teacherContributionsDB');
+    console.error('   6. Redeploy the application');
     console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB')));
 }
 const contributionsCollectionName = 'contributions';
