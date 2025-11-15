@@ -113,7 +113,18 @@ async function connectToMongo() {
         
         // Créer les index
         try {
-            await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1 }, { unique: true });
+            // Migrer ancien index unique (studentSelected, subjectSelected) -> nouvel index (student, subject, class, section)
+            const idx = await contributionsCollection.indexes();
+            const legacy = idx.find(i => i.unique && i.key && i.key.studentSelected === 1 && i.key.subjectSelected === 1 && Object.keys(i.key).length === 2);
+            if (legacy) {
+                try {
+                    await contributionsCollection.dropIndex(legacy.name);
+                    console.log(`ℹ️ Dropped legacy unique index: ${legacy.name}`);
+                } catch (dropErr) {
+                    console.warn('⚠️ Could not drop legacy index (will continue):', dropErr.message);
+                }
+            }
+            await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1 }, { unique: true, name: 'uniq_student_subject_class_section' });
             await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
         } catch (indexError) {
             console.log('Indexes already exist or conflict (OK)');
