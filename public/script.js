@@ -509,7 +509,9 @@ async function fetchData() {
         try {
             const data = await apiCall('fetchData', {
                 studentSelected: currentData.studentSelected,
-                subjectSelected: currentData.subjectSelected
+                subjectSelected: currentData.subjectSelected,
+                classSelected: currentData.classSelected,
+                sectionSelected: currentData.sectionSelected
             });
             
             resetInputTables();
