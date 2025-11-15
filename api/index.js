@@ -27,6 +27,9 @@ app.use((req, res, next) => {
 // Servir les fichiers statiques AVANT les routes API
 app.use(express.static(path.join(__dirname, '../public')));
 
+// Security: hide Express signature
+app.disable('x-powered-by');
+
 // Vérification et configuration des variables d'environnement
 console.log('🔧 Environment check:');
 console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
@@ -110,7 +113,7 @@ async function connectToMongo() {
         
         // Créer les index
         try {
-            await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1 }, { unique: true });
+            await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1 }, { unique: true });
             await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
         } catch (indexError) {
             console.log('Indexes already exist or conflict (OK)');
@@ -273,17 +276,10 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
 
 // --- API Routes ---
 
-// Servir les fichiers statiques
+// Static files served for local dev; on Vercel, public/ is served directly
 app.use(express.static(PUBLIC_DIR));
 
-app.get('/', (req, res) => {
-    const indexPath = path.join(__dirname, '../public/index.html');
-    if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send("Fichier principal introuvable.");
-    }
-});
+// Root is handled by Vercel to serve public/index.html (see vercel.json)
 
 // Test de l'API
 app.get('/api/test', (req, res) => {
@@ -304,11 +300,14 @@ app.post('/api/fetchData', async (req, res) => {
     }
     
     try {
-        const { studentSelected, subjectSelected } = req.body;
+        const { studentSelected, subjectSelected, classSelected, sectionSelected } = req.body;
         if (!studentSelected || !subjectSelected) {
             return res.json({ noDataForSubject: true, studentSelected });
         }
-        const contribution = await contributionsCollection.findOne({ studentSelected, subjectSelected });
+        const query = { studentSelected, subjectSelected };
+        if (classSelected) query.classSelected = classSelected;
+        if (sectionSelected) query.sectionSelected = sectionSelected;
+        const contribution = await contributionsCollection.findOne(query);
         const studentInfo = await studentsCollection.findOne({ studentSelected }, { projection: { studentBirthdate: 1 } });
         
         if (contribution) {
@@ -364,6 +363,13 @@ app.post('/api/saveContribution', async (req, res) => {
         contribData.timestamp = new Date();
         
         console.log(`Saving contribution for ${contribData.studentSelected} - ${contribData.subjectSelected}`);
+        // Minimal required fields validation to avoid invalid direct writes
+        const required = ['studentSelected','subjectSelected','classSelected','sectionSelected','teacherName'];
+        for (const key of required) {
+            if (!contribData[key]) {
+                return res.status(400).json({ success: false, error: `Champ manquant: ${key}` });
+            }
+        }
         
         // Mettre à jour la date de naissance
         if (studentBirthdate) {
@@ -385,7 +391,7 @@ app.post('/api/saveContribution', async (req, res) => {
         } else {
             // Création ou upsert
             result = await contributionsCollection.findOneAndUpdate(
-                { studentSelected: contribData.studentSelected, subjectSelected: contribData.subjectSelected },
+                { studentSelected: contribData.studentSelected, subjectSelected: contribData.subjectSelected, classSelected: contribData.classSelected, sectionSelected: contribData.sectionSelected },
                 { $set: contribData, $setOnInsert: { createdAt: new Date() } },
                 { upsert: true, returnDocument: 'after' }
             );
@@ -608,19 +614,14 @@ app.get('/api/health', (req, res) => {
     });
 });
 
-// Route pour la page principale (catch-all pour servir index.html)
-app.get('/', (req, res) => {
-    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
-});
+// Route '/' handled by Vercel (public/index.html)
 
-// Catch-all route pour servir index.html pour toutes les autres routes non-API
-app.get('*', (req, res) => {
-    // Si c'est une route API, laisser passer pour les middlewares suivants
+// Catch-all for API only; static routing is handled by Vercel
+app.all('*', (req, res) => {
     if (req.path.startsWith('/api/')) {
         return res.status(404).json({ error: 'API endpoint not found' });
     }
-    // Sinon, servir index.html (pour SPA routing)
-    res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+    res.status(404).end();
 });
 
 // --- Démarrage ---

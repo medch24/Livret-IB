@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Livret scolaire</title>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -168,45 +168,28 @@
         <div class="data-container" id="dataContainer"></div>
     </main>
 
+    <script src="/script.js"></script>
     <script>
-        // Variables globales
-        let currentData = {
-            contributionId: null,
-            teacherName: localStorage.getItem('teacherName') || null,
-            classSelected: null,
-            sectionSelected: null, // Pas d'auto-sélection
-            subjectSelected: null,
-            studentSelected: null,
-            studentBirthdate: null,
-            studentPhoto: null,
-            teacherComment: null,
-            communicationEvaluation: ['', '', '', '', ''],
-            criteriaValues: {
-                A: {sem1: null, sem2: null, finalLevel: null},
-                B: {sem1: null, sem2: null, finalLevel: null},
-                C: {sem1: null, sem2: null, finalLevel: null},
-                D: {sem1: null, sem2: null, finalLevel: null}
-            }
-        };
-        
-        let currentContributionId = null;
+        // script.js charge toutes les fonctions et variables requises.
+        // Ici, nous n'ajoutons que les handlers nécessaires pour les attributs HTML inline.
+        window.handleSectionChange = handleSectionChange;
+        window.handleClassChange = handleClassChange;
+        window.handleStudentChange = handleStudentChange;
+        window.handleSubjectChange = handleSubjectChange;
+        window.handleCommunicationChange = handleCommunicationChange;
+        window.handleTeacherNameChange = handleTeacherNameChange;
+        window.handleStudentBirthdateChange = handleStudentBirthdateChange;
+        window.validateInput = validateInput;
+        window.submitForm = submitForm;
+        window.showStudentData = showStudentData;
+        window.toggleContributionDetails = toggleContributionDetails;
+        window.editContribution = editContribution;
+        window.deleteContribution = deleteContribution;
+        window.generateAllWordsInSection = generateAllWordsInSection;
+        window.generateExcel = generateExcel;
+    </script>
+    <script>
 
-        // Éléments DOM
-        const progressBarContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        const studentInfoContainer = document.getElementById('studentInfoContainer');
-        const contributionEntrySections = document.getElementById('contributionEntrySections');
-        const submitButton = document.getElementById('submitButton');
-        const teacherNameInput = document.getElementById('teacherName');
-        const classSelector = document.getElementById('classSelector');
-        const studentSelector = document.getElementById('studentSelector');
-        const subjectSelector = document.getElementById('subjectSelector');
-        const dataContainer = document.getElementById('dataContainer');
-        const studentBirthdateInput = document.getElementById('studentBirthdate');
-
-        // Données des étudiants - Garçons
-        const studentData = {
             'Faysal': {birthdate: '2014-04-15', photo: 'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-Ii-V8VrC'},
             'Bilal': {birthdate: '2015-02-15', photo: 'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyTlUDEVu'},
             'Jad': {birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1VLvrWjeJwaClf4pSaLiwjnS79N-HrsFr'},
@@ -1198,7 +1181,7 @@
                 teacherNameInput.value = currentData.teacherName;
             }
             
-            console.log("Application prête.");
+                console.log("Application prête.");
         });
     </script>
 </body>
