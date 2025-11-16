@@ -1,10 +1,14 @@
 // --- Dépendances ---
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
-// Configuration dotenv uniquement en développement local
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
+
+// Configuration dotenv - TOUJOURS charger pour compatibilité locale et Vercel
+try {
+    require('dotenv').config({ path: ['.env.local', '.env.production', '.env'] });
+} catch (err) {
+    console.log('ℹ️ No dotenv file found (using system environment variables)');
 }
+
 const fs = require('fs');
 const path = require('path');
 const PizZip = require("pizzip");
@@ -15,8 +19,8 @@ const fetch = require('node-fetch');
 
 // --- Configuration ---
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Logging middleware pour débugger
 app.use((req, res, next) => {
@@ -31,10 +35,17 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.disable('x-powered-by');
 
 // Vérification et configuration des variables d'environnement
-console.log('🔧 Environment check:');
+console.log('🔧 ===== ENVIRONMENT DIAGNOSTICS =====');
 console.log('NODE_ENV:', process.env.NODE_ENV || 'development');
 console.log('VERCEL:', process.env.VERCEL ? 'true' : 'false');
+console.log('VERCEL_ENV:', process.env.VERCEL_ENV || 'N/A');
 console.log('MONGODB_URI defined:', !!process.env.MONGODB_URI);
+console.log('MONGODB_URI length:', process.env.MONGODB_URI ? process.env.MONGODB_URI.length : 0);
+console.log('DB_NAME:', process.env.DB_NAME || 'teacherContributionsDB');
+console.log('All env vars containing MONGO or DB:', 
+    Object.keys(process.env).filter(k => k.toLowerCase().includes('mongo') || k.toLowerCase().includes('db_'))
+);
+console.log('=====================================');
 
 const PORT = process.env.PORT || 3000;
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -42,15 +53,19 @@ const dbName = process.env.DB_NAME || 'teacherContributionsDB';
 
 // Validation critique des variables d'environnement
 if (!MONGODB_URI) {
-    console.error('❌ CRITICAL: MONGODB_URI environment variable is missing!');
-    console.error('📋 Please configure environment variables in Vercel:');
+    console.error('❌ CRITICAL: MONGODB_URI environment variable is MISSING!');
+    console.error('📋 URGENT: Configure environment variables in Vercel Dashboard:');
     console.error('   1. Go to: https://vercel.com/dashboard');
-    console.error('   2. Select your project');
-    console.error('   3. Go to Settings > Environment Variables');
-    console.error('   4. Add: MONGODB_URI = mongodb+srv://mohamedsherif:Mmedch86@livret2026.9owu7hs.mongodb.net/?appName=Livret2026');
-    console.error('   5. Add: DB_NAME = teacherContributionsDB');
-    console.error('   6. Redeploy the application');
-    console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('MONGO') || k.includes('DB')));
+    console.error('   2. Select your project: livret-ib2026');
+    console.error('   3. Navigate to: Settings > Environment Variables');
+    console.error('   4. Add variable: MONGODB_URI');
+    console.error('   5. Add variable: DB_NAME = teacherContributionsDB');
+    console.error('   6. Check all environments: Production, Preview, Development');
+    console.error('   7. Save and Redeploy');
+    console.error('');
+    console.error('Current environment variables available:', Object.keys(process.env).slice(0, 20).join(', '));
+} else {
+    console.log('✅ MONGODB_URI is defined and available');
 }
 const contributionsCollectionName = 'contributions';
 const studentsCollectionName = 'students';
@@ -95,25 +110,54 @@ const criteriaBySubject = {
 };
 
 // --- Connexion Base de Données ---
-async function connectToMongo() {
+let mongoClient = null;
+let connectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 3;
+const CONNECTION_RETRY_DELAY = 2000; // 2 secondes
+
+async function connectToMongo(retryCount = 0) {
     if (!MONGODB_URI) {
-        console.error("FATAL ERROR: MONGODB_URI is not defined.");
+        console.error("❌ FATAL ERROR: MONGODB_URI is not defined!");
+        console.error("📋 Without MONGODB_URI, the application cannot function.");
+        console.error("📋 Please set MONGODB_URI in Vercel Environment Variables.");
         return false;
     }
     
+    connectionAttempts++;
+    console.log(`🔄 MongoDB connection attempt ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}...`);
+    
     try {
-        const client = new MongoClient(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
-        await client.connect();
-        console.log('✅ Successfully connected to MongoDB.');
+        // Configuration optimale pour MongoDB Atlas
+        const clientOptions = {
+            serverSelectionTimeoutMS: 10000, // 10 secondes timeout
+            socketTimeoutMS: 45000,
+            maxPoolSize: 10,
+            minPoolSize: 2,
+            retryWrites: true,
+            retryReads: true,
+            w: 'majority'
+        };
         
-        const db = client.db(dbName);
+        mongoClient = new MongoClient(MONGODB_URI, clientOptions);
+        
+        console.log('🔌 Connecting to MongoDB Atlas...');
+        await mongoClient.connect();
+        
+        console.log('✅ Successfully connected to MongoDB!');
+        console.log(`📊 Database: ${dbName}`);
+        
+        const db = mongoClient.db(dbName);
         contributionsCollection = db.collection(contributionsCollectionName);
         studentsCollection = db.collection(studentsCollectionName);
         isDbConnected = true;
         
+        // Test de ping pour vérifier la connexion
+        await db.admin().ping();
+        console.log('✅ MongoDB ping successful');
+        
         // Créer les index
         try {
-            // Migrer ancien index unique (studentSelected, subjectSelected) -> nouvel index (student, subject, class, section)
+            console.log('🔧 Setting up database indexes...');
             const idx = await contributionsCollection.indexes();
             const legacy = idx.find(i => i.unique && i.key && i.key.studentSelected === 1 && i.key.subjectSelected === 1 && Object.keys(i.key).length === 2);
             if (legacy) {
@@ -126,15 +170,64 @@ async function connectToMongo() {
             }
             await contributionsCollection.createIndex({ studentSelected: 1, subjectSelected: 1, classSelected: 1, sectionSelected: 1 }, { unique: true, name: 'uniq_student_subject_class_section' });
             await studentsCollection.createIndex({ studentSelected: 1 }, { unique: true });
+            console.log('✅ Database indexes created successfully');
         } catch (indexError) {
-            console.log('Indexes already exist or conflict (OK)');
+            console.log('ℹ️ Indexes already exist (this is OK)');
         }
         
+        connectionAttempts = 0; // Reset counter on success
         return true;
+        
     } catch (error) {
-        console.error('❌ MongoDB connection failed:', error);
+        console.error('❌ MongoDB connection failed!');
+        console.error('Error type:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error code:', error.code);
+        
+        if (error.message.includes('authentication')) {
+            console.error('🔐 Authentication failed - check username and password in MONGODB_URI');
+        } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+            console.error('🌐 Network error - check internet connection and MongoDB Atlas network access');
+        } else if (error.message.includes('timeout')) {
+            console.error('⏱️ Connection timeout - MongoDB Atlas might be unreachable');
+        }
+        
         isDbConnected = false;
-        return false;
+        
+        // Retry logic
+        if (retryCount < MAX_CONNECTION_ATTEMPTS - 1) {
+            console.log(`⏳ Retrying in ${CONNECTION_RETRY_DELAY/1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, CONNECTION_RETRY_DELAY));
+            return connectToMongo(retryCount + 1);
+        } else {
+            console.error(`❌ Failed to connect to MongoDB after ${MAX_CONNECTION_ATTEMPTS} attempts`);
+            console.error('📋 Please verify:');
+            console.error('   1. MONGODB_URI is correctly set in Vercel Environment Variables');
+            console.error('   2. MongoDB Atlas cluster is running');
+            console.error('   3. Network Access allows connections from 0.0.0.0/0');
+            console.error('   4. Database user credentials are correct');
+            return false;
+        }
+    }
+}
+
+// Reconnection handler for connection drops
+function setupMongoReconnection() {
+    if (mongoClient) {
+        mongoClient.on('close', () => {
+            console.log('⚠️ MongoDB connection closed');
+            isDbConnected = false;
+            // Attempt reconnection
+            setTimeout(() => {
+                console.log('🔄 Attempting to reconnect to MongoDB...');
+                connectToMongo();
+            }, 5000);
+        });
+        
+        mongoClient.on('error', (error) => {
+            console.error('❌ MongoDB client error:', error.message);
+            isDbConnected = false;
+        });
     }
 }
 
@@ -604,25 +697,101 @@ app.post('/api/addTestData', async (req, res) => {
     }
 });
 
-// Route de diagnostic pour débugger les problèmes Vercel
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
+// Route de diagnostic complète pour débugger les problèmes
+app.get('/api/health', async (req, res) => {
+    const healthStatus = {
+        status: isDbConnected ? 'healthy' : 'unhealthy',
         timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
         environment: {
             NODE_ENV: process.env.NODE_ENV || 'development',
             VERCEL: !!process.env.VERCEL,
+            VERCEL_ENV: process.env.VERCEL_ENV || 'N/A',
             MONGODB_URI_defined: !!MONGODB_URI,
+            MONGODB_URI_length: MONGODB_URI ? MONGODB_URI.length : 0,
             DB_NAME: dbName
         },
         database: {
             connected: isDbConnected,
+            connectionAttempts: connectionAttempts,
             collections: {
                 contributions: !!contributionsCollection,
                 students: !!studentsCollection
             }
         }
-    });
+    };
+    
+    // Test de ping MongoDB si connecté
+    if (isDbConnected && mongoClient) {
+        try {
+            const db = mongoClient.db(dbName);
+            await db.admin().ping();
+            healthStatus.database.pingSuccess = true;
+            healthStatus.database.lastPing = new Date().toISOString();
+        } catch (pingError) {
+            healthStatus.database.pingSuccess = false;
+            healthStatus.database.pingError = pingError.message;
+        }
+    }
+    
+    res.json(healthStatus);
+});
+
+// Endpoint de diagnostic détaillé (accessible uniquement si besoin)
+app.get('/api/diagnostics', async (req, res) => {
+    const diagnostics = {
+        timestamp: new Date().toISOString(),
+        application: {
+            name: 'Livret-IB',
+            version: '1.0.0',
+            uptime: `${Math.floor(process.uptime())} seconds`
+        },
+        environment: {
+            nodeVersion: process.version,
+            platform: process.platform,
+            NODE_ENV: process.env.NODE_ENV || 'development',
+            isVercel: !!process.env.VERCEL,
+            vercelEnv: process.env.VERCEL_ENV || 'N/A'
+        },
+        configuration: {
+            MONGODB_URI: MONGODB_URI ? '✅ Defined (hidden for security)' : '❌ NOT DEFINED',
+            DB_NAME: dbName,
+            PORT: PORT
+        },
+        database: {
+            connectionStatus: isDbConnected ? '✅ Connected' : '❌ Not Connected',
+            connectionAttempts: connectionAttempts,
+            contributionsCollection: contributionsCollection ? '✅ Available' : '❌ Not Available',
+            studentsCollection: studentsCollection ? '✅ Available' : '❌ Not Available'
+        },
+        endpoints: {
+            '/api/test': 'API test endpoint',
+            '/api/health': 'Health check endpoint',
+            '/api/diagnostics': 'Detailed diagnostics',
+            '/api/fetchData': 'Fetch student/subject data',
+            '/api/saveContribution': 'Save contribution',
+            '/api/generateSingleWord': 'Generate Word document'
+        }
+    };
+    
+    // Test database connection if connected
+    if (isDbConnected) {
+        try {
+            const db = mongoClient.db(dbName);
+            await db.admin().ping();
+            diagnostics.database.pingTest = '✅ Success';
+            
+            // Count documents
+            const contribCount = await contributionsCollection.countDocuments();
+            const studentCount = await studentsCollection.countDocuments();
+            diagnostics.database.contributionsCount = contribCount;
+            diagnostics.database.studentsCount = studentCount;
+        } catch (err) {
+            diagnostics.database.pingTest = `❌ Failed: ${err.message}`;
+        }
+    }
+    
+    res.json(diagnostics);
 });
 
 // Route '/' handled by Vercel (public/index.html)
@@ -636,18 +805,66 @@ app.all('*', (req, res) => {
 });
 
 // --- Démarrage ---
-connectToMongo().then(() => {
-    console.log('✅ Server initialized successfully');
+console.log('🚀 ===== APPLICATION STARTUP =====');
+console.log('Starting Livret-IB application...');
+
+// Initialiser la connexion MongoDB
+connectToMongo().then((success) => {
+    if (success) {
+        console.log('✅ Server initialized successfully with database connection');
+        setupMongoReconnection(); // Configure reconnection handlers
+    } else {
+        console.warn('⚠️ Server initialized BUT database connection FAILED');
+        console.warn('⚠️ The application will run in READ-ONLY mode (no save/update)');
+        console.warn('📋 Please check Vercel Environment Variables:');
+        console.warn('   - MONGODB_URI must be set correctly');
+        console.warn('   - DB_NAME should be set to: teacherContributionsDB');
+    }
     
     // Démarrage local (seulement si pas dans Vercel)
     if (require.main === module) {
         app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
+            console.log('================================');
+            console.log(`🚀 Server is running on port ${PORT}`);
+            console.log(`🌐 Local URL: http://localhost:${PORT}`);
+            console.log(`🔍 Health check: http://localhost:${PORT}/api/health`);
+            console.log(`📊 Diagnostics: http://localhost:${PORT}/api/diagnostics`);
+            console.log('================================');
         });
     }
 }).catch(err => {
-    console.error('❌ Failed to initialize database:', err);
+    console.error('❌ CRITICAL: Failed to initialize server');
+    console.error('Error details:', err);
+    console.error('The application may not function correctly');
+    
+    // Sur Vercel, on continue quand même pour que l'app démarre
+    if (process.env.VERCEL) {
+        console.warn('⚠️ Running in Vercel - application will start despite DB error');
+        console.warn('⚠️ Please fix environment variables in Vercel Dashboard');
+    }
 });
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+    console.log('📴 SIGTERM received, closing server gracefully...');
+    if (mongoClient) {
+        await mongoClient.close();
+        console.log('✅ MongoDB connection closed');
+    }
+    process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+    console.log('📴 SIGINT received, closing server gracefully...');
+    if (mongoClient) {
+        await mongoClient.close();
+        console.log('✅ MongoDB connection closed');
+    }
+    process.exit(0);
+});
+
+console.log('✅ Server startup sequence complete');
+console.log('==================================');
 
 // Export pour Vercel
 module.exports = app;
