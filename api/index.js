@@ -385,6 +385,47 @@ app.use(express.static(PUBLIC_DIR));
 
 // Root is handled by Vercel to serve public/index.html (see vercel.json)
 
+// Middleware pour garantir la connexion MongoDB avant les requêtes API
+async function ensureDbConnection(req, res, next) {
+    // Si déjà connecté, continuer
+    if (isDbConnected && mongoClient && contributionsCollection && studentsCollection) {
+        return next();
+    }
+    
+    console.log('⚠️ Database not connected, attempting connection...');
+    
+    try {
+        const connected = await connectToMongo();
+        if (connected) {
+            console.log('✅ Database connection established in middleware');
+            return next();
+        } else {
+            console.error('❌ Failed to establish database connection in middleware');
+            return res.status(503).json({ 
+                error: 'Service temporairement indisponible',
+                details: 'Impossible de se connecter à la base de données. Veuillez réessayer dans quelques instants.',
+                dbConnected: false
+            });
+        }
+    } catch (error) {
+        console.error('❌ Error in database connection middleware:', error);
+        return res.status(503).json({ 
+            error: 'Service temporairement indisponible',
+            details: 'Erreur lors de la connexion à la base de données.',
+            dbConnected: false
+        });
+    }
+}
+
+// Appliquer le middleware à toutes les routes API sauf /api/test et /api/health
+app.use('/api', (req, res, next) => {
+    // Exclure les routes de santé du middleware de connexion DB
+    if (req.path === '/test' || req.path === '/health') {
+        return next();
+    }
+    return ensureDbConnection(req, res, next);
+});
+
 // Test de l'API
 app.get('/api/test', (req, res) => {
     res.json({
@@ -397,12 +438,7 @@ app.get('/api/test', (req, res) => {
 
 // Récupérer les données d'un élève/matière
 app.post('/api/fetchData', async (req, res) => {
-    if (!isDbConnected) {
-        console.log('⚠️ DB not connected, returning noDataForSubject for fetchData');
-        const { studentSelected } = req.body;
-        return res.json({ noDataForSubject: true, studentSelected });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { studentSelected, subjectSelected, classSelected, sectionSelected } = req.body;
         if (!studentSelected || !subjectSelected) {
@@ -429,11 +465,7 @@ app.post('/api/fetchData', async (req, res) => {
 
 // Récupérer les infos d'un élève
 app.post('/api/fetchStudentInfo', async (req, res) => {
-    if (!isDbConnected) {
-        console.log('⚠️ DB not connected, returning null for fetchStudentInfo');
-        return res.json(null); // Retourner null au lieu d'une erreur 500
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { studentSelected } = req.body;
         if (!studentSelected) {
@@ -453,15 +485,7 @@ app.post('/api/fetchStudentInfo', async (req, res) => {
 
 // Enregistrer/Mettre à jour une contribution
 app.post('/api/saveContribution', async (req, res) => {
-    // Vérifier que la base de données est connectée
-    if (!isDbConnected) {
-        console.error('❌ Cannot save contribution: Database not connected');
-        return res.status(500).json({ 
-            success: false,
-            error: 'La base de données n\'est pas connectée. Veuillez vérifier la configuration.' 
-        });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { contributionId, studentBirthdate, studentPhoto, ...contribData } = req.body;
         contribData.timestamp = new Date();
@@ -523,11 +547,7 @@ app.post('/api/saveContribution', async (req, res) => {
 
 // Récupérer les contributions d'un élève
 app.post('/api/fetchStudentContributions', async (req, res) => {
-    if (!isDbConnected) {
-        console.log('⚠️ DB not connected, returning empty array for fetchStudentContributions');
-        return res.json([]); // Retourner un tableau vide au lieu d'une erreur 500
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { student } = req.body;
         if (!student) {
@@ -546,10 +566,7 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
 
 // Récupérer une contribution spécifique
 app.post('/api/fetchContribution', async (req, res) => {
-    if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { contributionId } = req.body;
         const contribution = await contributionsCollection.findOne({ _id: new ObjectId(contributionId) });
@@ -573,10 +590,7 @@ app.post('/api/fetchContribution', async (req, res) => {
 
 // Supprimer une contribution
 app.post('/api/deleteContribution', async (req, res) => {
-    if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { contributionId } = req.body;
         const result = await contributionsCollection.findOneAndDelete({ _id: new ObjectId(contributionId) });
@@ -595,10 +609,7 @@ app.post('/api/deleteContribution', async (req, res) => {
 
 // Générer un document Word pour un élève
 app.post('/api/generateSingleWord', async (req, res) => {
-    if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         const { studentSelected, classSelected, sectionSelected, studentPhotoUrl } = req.body;
         
@@ -661,10 +672,7 @@ app.post('/api/generateSingleWord', async (req, res) => {
 
 // Endpoint pour ajouter des données de test (temporaire pour débugger)
 app.post('/api/addTestData', async (req, res) => {
-    if (!isDbConnected) {
-        return res.status(500).json({ error: 'Database not connected' });
-    }
-    
+    // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
         // Données de test pour Bilal
         const testContribution = {
