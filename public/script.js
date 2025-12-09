@@ -10,11 +10,13 @@ let currentData = {
     studentPhoto: null,
     teacherComment: null,
     communicationEvaluation: ['', '', '', '', ''],
+    unitsSem1: 1,
+    unitsSem2: 1,
     criteriaValues: {
-        A: {sem1: null, sem2: null, finalLevel: null},
-        B: {sem1: null, sem2: null, finalLevel: null},
-        C: {sem1: null, sem2: null, finalLevel: null},
-        D: {sem1: null, sem2: null, finalLevel: null}
+        A: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+        B: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+        C: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+        D: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []}
     }
 };
 
@@ -217,34 +219,206 @@ function handleCommunicationChange() {
     ).map(sel => sel.value);
 }
 
+function handleUnitsChange() {
+    const unitsSem1 = parseInt(document.getElementById('unitsSem1Selector').value);
+    const unitsSem2 = parseInt(document.getElementById('unitsSem2Selector').value);
+    
+    currentData.unitsSem1 = unitsSem1;
+    currentData.unitsSem2 = unitsSem2;
+    
+    rebuildCriteriaTable();
+}
+
+function rebuildCriteriaTable() {
+    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxValue = isDPClass ? 7 : 8;
+    const criteriaKeys = isDPClass ? ['AO1', 'AO2', 'AO3', 'AO4'] : ['A', 'B', 'C', 'D'];
+    const unitsSem1 = currentData.unitsSem1;
+    const unitsSem2 = currentData.unitsSem2;
+    
+    const thead = document.getElementById('criteriaTableHead');
+    const tbody = document.getElementById('criteriaTableBody');
+    
+    // Construire les en-têtes
+    let headerHTML = '<tr><th>Critères</th>';
+    
+    // En-têtes pour Semestre 1
+    if (unitsSem1 === 1) {
+        headerHTML += `<th>Semestre 1 (/${maxValue})</th>`;
+    } else {
+        for (let i = 1; i <= unitsSem1; i++) {
+            headerHTML += `<th>S1-U${i} (/${maxValue})</th>`;
+        }
+        headerHTML += `<th style="background-color: #e7f3ff;">Moyenne S1 (/${maxValue})</th>`;
+    }
+    
+    // En-têtes pour Semestre 2
+    if (unitsSem2 === 1) {
+        headerHTML += `<th>Semestre 2 (/${maxValue})</th>`;
+    } else {
+        for (let i = 1; i <= unitsSem2; i++) {
+            headerHTML += `<th>S2-U${i} (/${maxValue})</th>`;
+        }
+        headerHTML += `<th style="background-color: #e7f3ff;">Moyenne S2 (/${maxValue})</th>`;
+    }
+    
+    headerHTML += `<th>Niveau Final (/${maxValue})</th>`;
+    headerHTML += `<th>Seuil Total (/${isDPClass ? 28 : 32})</th>`;
+    headerHTML += `<th>Note Finale (/${maxValue})</th>`;
+    headerHTML += '</tr>';
+    
+    thead.innerHTML = headerHTML;
+    
+    // Construire le corps du tableau
+    let bodyHTML = '';
+    criteriaKeys.forEach((key, index) => {
+        const criteriaData = currentData.criteriaValues[key] || {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
+        
+        bodyHTML += `<tr data-criteria="${key}"><td>${key}</td>`;
+        
+        // Colonnes pour Semestre 1
+        if (unitsSem1 === 1) {
+            const val = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
+            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for (let i = 0; i < unitsSem1; i++) {
+                const val = criteriaData.sem1Units[i] !== null && criteriaData.sem1Units[i] !== undefined ? criteriaData.sem1Units[i] : '';
+                bodyHTML += `<td class="sem1-unit-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            }
+            const avgVal = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
+            bodyHTML += `<td class="sem1-avg-cell" style="background-color: #e7f3ff;"><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem1-avg-input"></td>`;
+        }
+        
+        // Colonnes pour Semestre 2
+        if (unitsSem2 === 1) {
+            const val = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
+            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="0"></td>`;
+        } else {
+            for (let i = 0; i < unitsSem2; i++) {
+                const val = criteriaData.sem2Units[i] !== null && criteriaData.sem2Units[i] !== undefined ? criteriaData.sem2Units[i] : '';
+                bodyHTML += `<td class="sem2-unit-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this)" data-unit="${i}"></td>`;
+            }
+            const avgVal = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
+            bodyHTML += `<td class="sem2-avg-cell" style="background-color: #e7f3ff;"><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem2-avg-input"></td>`;
+        }
+        
+        // Niveau Final
+        const finalVal = criteriaData.finalLevel !== null ? criteriaData.finalLevel : '';
+        bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${finalVal}" class="final-level-input"></td>`;
+        
+        // Seuil et Note (seulement sur la première ligne avec rowspan)
+        if (index === 0) {
+            bodyHTML += `<td rowspan="${criteriaKeys.length}"><input id="threshold" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
+            bodyHTML += `<td rowspan="${criteriaKeys.length}"><input id="finalNote" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
+        }
+        
+        bodyHTML += '</tr>';
+    });
+    
+    tbody.innerHTML = bodyHTML;
+    
+    // Recalculer les totaux
+    calculateTotals();
+}
+
 function handleCriteriaChange(inputElement) {
     const row = inputElement.closest('tr');
     if (!row) return;
     
-    const criteriaTypeLabel = row.cells[0].textContent;
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    let criteriaType;
-    if (isDPClass) {
-        const match = criteriaTypeLabel?.match(/^(AO\d+)/);
-        criteriaType = match ? match[1] : null;
-    } else {
-        criteriaType = criteriaTypeLabel?.charAt(0);
-    }
-
-    const sem1Input = row.cells[1]?.querySelector('input');
-    const sem2Input = row.cells[2]?.querySelector('input');
+    const criteriaType = row.getAttribute('data-criteria');
+    if (!criteriaType) return;
     
-    const sem1Value = sem1Input?.value !== '' ? parseFloat(sem1Input.value) : null;
-    const sem2Value = sem2Input?.value !== '' ? parseFloat(sem2Input.value) : null;
+    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxValue = isDPClass ? 7 : 8;
     
     if (!currentData.criteriaValues[criteriaType]) {
-        currentData.criteriaValues[criteriaType] = { sem1: null, sem2: null, finalLevel: null };
+        currentData.criteriaValues[criteriaType] = { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] };
     }
     
-    currentData.criteriaValues[criteriaType].sem1 = sem1Value;
-    currentData.criteriaValues[criteriaType].sem2 = sem2Value;
+    // Collecter les valeurs des unités Semestre 1
+    const sem1UnitInputs = row.querySelectorAll('.sem1-unit-cell input, .sem1-cell input');
+    const sem1Units = [];
+    let sem1Sum = 0;
+    let sem1Count = 0;
     
-    calculateRow(row);
+    sem1UnitInputs.forEach((input) => {
+        const unitIndex = parseInt(input.getAttribute('data-unit') || '0');
+        const value = input.value !== '' ? parseFloat(input.value) : null;
+        sem1Units[unitIndex] = value;
+        if (value !== null && !isNaN(value)) {
+            sem1Sum += value;
+            sem1Count++;
+        }
+    });
+    
+    // Calculer la moyenne Semestre 1
+    let sem1Avg = null;
+    if (currentData.unitsSem1 === 1) {
+        sem1Avg = sem1Units[0];
+    } else if (sem1Count > 0) {
+        sem1Avg = Math.round(sem1Sum / sem1Count);
+    }
+    
+    // Mettre à jour l'affichage de la moyenne S1
+    const sem1AvgInput = row.querySelector('.sem1-avg-input');
+    if (sem1AvgInput) {
+        sem1AvgInput.value = sem1Avg !== null ? sem1Avg : '';
+    }
+    
+    // Collecter les valeurs des unités Semestre 2
+    const sem2UnitInputs = row.querySelectorAll('.sem2-unit-cell input, .sem2-cell input');
+    const sem2Units = [];
+    let sem2Sum = 0;
+    let sem2Count = 0;
+    
+    sem2UnitInputs.forEach((input) => {
+        const unitIndex = parseInt(input.getAttribute('data-unit') || '0');
+        const value = input.value !== '' ? parseFloat(input.value) : null;
+        sem2Units[unitIndex] = value;
+        if (value !== null && !isNaN(value)) {
+            sem2Sum += value;
+            sem2Count++;
+        }
+    });
+    
+    // Calculer la moyenne Semestre 2
+    let sem2Avg = null;
+    if (currentData.unitsSem2 === 1) {
+        sem2Avg = sem2Units[0];
+    } else if (sem2Count > 0) {
+        sem2Avg = Math.round(sem2Sum / sem2Count);
+    }
+    
+    // Mettre à jour l'affichage de la moyenne S2
+    const sem2AvgInput = row.querySelector('.sem2-avg-input');
+    if (sem2AvgInput) {
+        sem2AvgInput.value = sem2Avg !== null ? sem2Avg : '';
+    }
+    
+    // Calculer le niveau final (moyenne des deux semestres)
+    let finalLevel = null;
+    if (sem1Avg !== null && sem2Avg !== null) {
+        finalLevel = Math.round((sem1Avg + sem2Avg) / 2);
+    } else if (sem1Avg !== null) {
+        finalLevel = sem1Avg;
+    } else if (sem2Avg !== null) {
+        finalLevel = sem2Avg;
+    }
+    
+    // Mettre à jour l'affichage du niveau final
+    const finalLevelInput = row.querySelector('.final-level-input');
+    if (finalLevelInput) {
+        finalLevelInput.value = finalLevel !== null ? finalLevel : '';
+    }
+    
+    // Stocker dans currentData
+    currentData.criteriaValues[criteriaType].sem1 = sem1Avg;
+    currentData.criteriaValues[criteriaType].sem2 = sem2Avg;
+    currentData.criteriaValues[criteriaType].finalLevel = finalLevel;
+    currentData.criteriaValues[criteriaType].sem1Units = sem1Units;
+    currentData.criteriaValues[criteriaType].sem2Units = sem2Units;
+    
+    calculateTotals();
 }
 
 // Logique de sélection
@@ -278,6 +452,7 @@ function handleSubjectChange(value) {
         fetchData();
         updateCriteriaTableDynamically();
         updateCriteriaTableHeaders();
+        rebuildCriteriaTable();
     }
 }
 
@@ -433,51 +608,15 @@ function validateInput(input) {
 }
 
 function calculateRow(rowElement) {
-    const criteriaLabel = rowElement.cells[0]?.textContent;
-    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    let criteriaType;
-    
-    if (isDPClass) {
-        // Pour DP: extraire AO1, AO2, etc.
-        const match = criteriaLabel?.match(/^(AO\d+)/);
-        criteriaType = match ? match[1] : null;
-    } else {
-        // Pour PEI: extraire A, B, C, D
-        criteriaType = criteriaLabel?.charAt(0);
+    // Utiliser handleCriteriaChange qui gère maintenant les unités
+    const firstInput = rowElement.querySelector('input[type="number"]:not([readonly])');
+    if (firstInput) {
+        handleCriteriaChange(firstInput);
     }
-    
-    const sem1Input = rowElement.cells[1]?.querySelector('input');
-    const sem2Input = rowElement.cells[2]?.querySelector('input');
-    const finalLevelInput = rowElement.cells[3]?.querySelector('input');
-    
-    if (!criteriaType || !sem1Input || !sem2Input || !finalLevelInput) return;
-    
-    const sem1Value = sem1Input.value !== '' ? parseFloat(sem1Input.value) : null;
-    const sem2Value = sem2Input.value !== '' ? parseFloat(sem2Input.value) : null;
-    
-    let finalLevel = null;
-    if (sem1Value !== null && sem2Value !== null) {
-        finalLevel = Math.round((sem1Value + sem2Value) / 2);
-    } else if (sem1Value !== null) {
-        finalLevel = sem1Value;
-    } else if (sem2Value !== null) {
-        finalLevel = sem2Value;
-    }
-    
-    finalLevelInput.value = (finalLevel !== null) ? finalLevel : '';
-    
-    if (!currentData.criteriaValues[criteriaType]) {
-        currentData.criteriaValues[criteriaType] = { sem1: null, sem2: null, finalLevel: null };
-    }
-    currentData.criteriaValues[criteriaType].sem1 = sem1Value;
-    currentData.criteriaValues[criteriaType].sem2 = sem2Value;
-    currentData.criteriaValues[criteriaType].finalLevel = finalLevel;
-    
-    calculateTotals();
 }
 
 function calculateTotals() {
-    const rows = document.querySelectorAll("#criteriaTable tbody tr");
+    const rows = document.querySelectorAll("#criteriaTableBody tr");
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
     const maxNote = isDPClass ? 7 : 8;
     const maxThreshold = isDPClass ? 28 : 32; // 4 critères * 7 ou 8
@@ -485,13 +624,16 @@ function calculateTotals() {
     let totalLevel = 0;
     
     rows.forEach(row => {
-        const finalLevelInput = row.cells[3]?.querySelector('input');
+        const finalLevelInput = row.querySelector('.final-level-input');
         if (finalLevelInput?.value !== '') {
             totalLevel += parseFloat(finalLevelInput.value);
         }
     });
     
-    document.getElementById("threshold").value = totalLevel;
+    const thresholdInput = document.getElementById("threshold");
+    if (thresholdInput) {
+        thresholdInput.value = totalLevel;
+    }
     
     let finalNote = 0;
     if (totalLevel > 0) {
@@ -500,7 +642,10 @@ function calculateTotals() {
         if (finalNote > maxNote) finalNote = maxNote;
     }
     
-    document.getElementById("finalNote").value = finalNote;
+    const finalNoteInput = document.getElementById("finalNote");
+    if (finalNoteInput) {
+        finalNoteInput.value = finalNote;
+    }
 }
 
 // Récupération des données
@@ -547,20 +692,36 @@ function fillFormWithData(data) {
         s.value = currentData.communicationEvaluation[i] || '';
     });
     
+    // Restaurer les unités sélectionnées
+    if (data.unitsSem1) {
+        currentData.unitsSem1 = data.unitsSem1;
+        document.getElementById('unitsSem1Selector').value = data.unitsSem1;
+    }
+    if (data.unitsSem2) {
+        currentData.unitsSem2 = data.unitsSem2;
+        document.getElementById('unitsSem2Selector').value = data.unitsSem2;
+    }
+    
     // Supporte PEI (A-D) et DP (AO1-AO4)
     currentData.criteriaValues = data.criteriaValues ? JSON.parse(JSON.stringify(data.criteriaValues)) : {A:{},B:{},C:{},D:{}};
+    
+    // S'assurer que chaque critère a les tableaux d'unités
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const rows = document.querySelectorAll("#criteriaTable tbody tr");
-    rows.forEach((row, i) => {
-        const key = isDPClass ? ('AO' + (i+1)) : String.fromCharCode(65 + i);
-        const critData = currentData.criteriaValues[key];
-        const sem1Input = row.cells[1]?.querySelector('input');
-        const sem2Input = row.cells[2]?.querySelector('input');
-        
-        if (sem1Input) sem1Input.value = critData?.sem1 ?? '';
-        if (sem2Input) sem2Input.value = critData?.sem2 ?? '';
-        calculateRow(row);
+    const criteriaKeys = isDPClass ? ['AO1', 'AO2', 'AO3', 'AO4'] : ['A', 'B', 'C', 'D'];
+    criteriaKeys.forEach(key => {
+        if (!currentData.criteriaValues[key]) {
+            currentData.criteriaValues[key] = {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
+        }
+        if (!currentData.criteriaValues[key].sem1Units) {
+            currentData.criteriaValues[key].sem1Units = [];
+        }
+        if (!currentData.criteriaValues[key].sem2Units) {
+            currentData.criteriaValues[key].sem2Units = [];
+        }
     });
+    
+    // Reconstruire le tableau avec les bonnes colonnes
+    rebuildCriteriaTable();
     
     currentData.studentBirthdate = data.studentBirthdate || currentData.studentBirthdate || '';
     studentBirthdateInput.value = currentData.studentBirthdate;
@@ -990,21 +1151,27 @@ function resetFormData() {
     resetInputTables();
     currentData.teacherComment = null;
     currentData.communicationEvaluation = ['', '', '', '', ''];
+    currentData.unitsSem1 = 1;
+    currentData.unitsSem2 = 1;
+    
+    // Réinitialiser les sélecteurs d'unités
+    document.getElementById('unitsSem1Selector').value = '1';
+    document.getElementById('unitsSem2Selector').value = '1';
     
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
     if (isDPClass) {
         currentData.criteriaValues = {
-            AO1: {sem1: null, sem2: null, finalLevel: null},
-            AO2: {sem1: null, sem2: null, finalLevel: null},
-            AO3: {sem1: null, sem2: null, finalLevel: null},
-            AO4: {sem1: null, sem2: null, finalLevel: null}
+            AO1: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            AO2: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            AO3: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            AO4: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []}
         };
     } else {
         currentData.criteriaValues = {
-            A: {sem1: null, sem2: null, finalLevel: null},
-            B: {sem1: null, sem2: null, finalLevel: null},
-            C: {sem1: null, sem2: null, finalLevel: null},
-            D: {sem1: null, sem2: null, finalLevel: null}
+            A: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            B: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            C: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []},
+            D: {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []}
         };
     }
     currentContributionId = null;
@@ -1012,11 +1179,13 @@ function resetFormData() {
 
 function resetInputTables() {
     document.querySelectorAll("#communicationTable tbody select").forEach(s => s.value = '');
-    document.querySelectorAll("#criteriaTable tbody input").forEach(i => {
+    document.querySelectorAll("#criteriaTableBody input").forEach(i => {
         if (!i.readOnly) i.value = '';
     });
-    document.getElementById("threshold").value = '';
-    document.getElementById("finalNote").value = '';
+    const thresholdInput = document.getElementById("threshold");
+    const finalNoteInput = document.getElementById("finalNote");
+    if (thresholdInput) thresholdInput.value = '';
+    if (finalNoteInput) finalNoteInput.value = '';
     document.getElementById('teacherComment').value = '';
 }
 

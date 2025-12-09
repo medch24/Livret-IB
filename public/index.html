@@ -123,8 +123,30 @@
             
             <section id="criteriaTable">
                 <h2>Critères d'Évaluation (Matière)</h2>
-                <table>
-                    <thead>
+                <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+                    <label style="margin-right: 15px;">
+                        <strong>Nombre d'unités - Semestre 1:</strong>
+                        <select id="unitsSem1Selector" onchange="handleUnitsChange()" style="margin-left: 5px; padding: 5px;">
+                            <option value="1">1 unité (note directe)</option>
+                            <option value="2">2 unités</option>
+                            <option value="3">3 unités</option>
+                            <option value="4">4 unités</option>
+                            <option value="5">5 unités</option>
+                        </select>
+                    </label>
+                    <label>
+                        <strong>Nombre d'unités - Semestre 2:</strong>
+                        <select id="unitsSem2Selector" onchange="handleUnitsChange()" style="margin-left: 5px; padding: 5px;">
+                            <option value="1">1 unité (note directe)</option>
+                            <option value="2">2 unités</option>
+                            <option value="3">3 unités</option>
+                            <option value="4">4 unités</option>
+                            <option value="5">5 unités</option>
+                        </select>
+                    </label>
+                </div>
+                <table id="criteriaTableElement">
+                    <thead id="criteriaTableHead">
                         <tr>
                             <th>Critères</th>
                             <th>Semestre 1 (/8)</th>
@@ -134,32 +156,32 @@
                             <th>Note Finale (/8)</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr>
+                    <tbody id="criteriaTableBody">
+                        <tr data-criteria="A">
                             <td>A</td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1"></td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
                             <td rowspan="4"><input id="threshold" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
                             <td rowspan="4"><input id="finalNote" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
                         </tr>
-                        <tr>
+                        <tr data-criteria="B">
                             <td>B</td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1"></td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
                         </tr>
-                        <tr>
+                        <tr data-criteria="C">
                             <td>C</td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1"></td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
                         </tr>
-                        <tr>
+                        <tr data-criteria="D">
                             <td>D</td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
-                            <td><input type="number" readonly tabindex="-1"></td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -187,6 +209,7 @@
         window.handleCommunicationChange = handleCommunicationChange;
         window.handleTeacherNameChange = handleTeacherNameChange;
         window.handleStudentBirthdateChange = handleStudentBirthdateChange;
+        window.handleUnitsChange = handleUnitsChange;
         window.validateInput = validateInput;
         window.submitForm = submitForm;
         window.showStudentData = showStudentData;
