@@ -328,18 +328,46 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
 }
 
 async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions) {
-    const templateURL = 'https://cdn.glitch.global/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973';
+    // Try multiple template URLs in order of preference
+    const templateURLs = [
+        'https://cdn.glitch.me/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973',
+        'https://cdn.glitch.com/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973',
+        'https://afba7f9d-6291-40ea-92bb-fe72daac96fd.cdn.glitch.me/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973'
+    ];
     
     try {
-        console.log(`🔄 Fetching Word template from: ${templateURL}`);
-        const response = await fetch(templateURL);
+        let response = null;
+        let templateURL = null;
+        let lastError = null;
         
-        if (!response.ok) {
-            console.error(`❌ Template fetch failed: ${response.status} ${response.statusText}`);
-            throw new Error(`Template fetch failed: ${response.status} ${response.statusText}`);
+        // Try each URL until one works
+        for (const url of templateURLs) {
+            try {
+                console.log(`🔄 Attempting to fetch Word template from: ${url}`);
+                const testResponse = await fetch(url, { timeout: 10000 });
+                
+                if (testResponse.ok) {
+                    response = testResponse;
+                    templateURL = url;
+                    console.log(`✅ Successfully connected to template URL: ${url}`);
+                    break;
+                }
+                lastError = `HTTP ${testResponse.status}: ${testResponse.statusText}`;
+                console.log(`⚠️ URL failed with status ${testResponse.status}, trying next...`);
+            } catch (fetchErr) {
+                lastError = fetchErr.message;
+                console.log(`⚠️ URL failed with error: ${fetchErr.message}, trying next...`);
+            }
         }
         
-        console.log(`✅ Template fetched successfully, size: ${response.headers.get('content-length') || 'unknown'} bytes`);
+        if (!response || !response.ok) {
+            const errorMsg = `All template URLs failed. Last error: ${lastError}. Please ensure the template is accessible.`;
+            console.error(`❌ ${errorMsg}`);
+            throw new Error(errorMsg);
+        }
+        
+        console.log(`✅ Template fetched successfully from: ${templateURL}`);
+        console.log(`✅ Template size: ${response.headers.get('content-length') || 'unknown'} bytes`);
         const templateContent = await response.arrayBuffer();
         console.log(`✅ Template content loaded: ${templateContent.byteLength} bytes`);
         
@@ -665,8 +693,24 @@ app.post('/api/generateSingleWord', async (req, res) => {
         res.send(docBuffer);
         
     } catch (error) {
-        console.error('Error generating Word:', error);
-        res.status(500).json({ error: `Erreur génération Word: ${error.message}` });
+        console.error('❌ Error generating Word document:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            studentSelected: req.body.studentSelected
+        });
+        
+        // Provide more detailed error message
+        let errorMessage = 'Erreur génération Word';
+        if (error.message.includes('template')) {
+            errorMessage = 'Erreur: Le modèle Word est inaccessible. Veuillez contacter l\'administrateur.';
+        } else if (error.message.includes('fetch')) {
+            errorMessage = 'Erreur: Impossible de télécharger le modèle Word. Vérifiez votre connexion internet.';
+        } else {
+            errorMessage = `Erreur génération Word: ${error.message}`;
+        }
+        
+        res.status(500).json({ error: errorMessage });
     }
 });
 
