@@ -42,6 +42,8 @@ console.log('VERCEL_ENV:', process.env.VERCEL_ENV || 'N/A');
 console.log('MONGODB_URI defined:', !!process.env.MONGODB_URI);
 console.log('MONGODB_URI length:', process.env.MONGODB_URI ? process.env.MONGODB_URI.length : 0);
 console.log('DB_NAME:', process.env.DB_NAME || 'teacherContributionsDB');
+console.log('TEMPLATE_URL defined:', !!process.env.TEMPLATE_URL);
+console.log('TEMPLATE_URL:', process.env.TEMPLATE_URL ? process.env.TEMPLATE_URL.substring(0, 50) + '...' : 'Not set');
 console.log('All env vars containing MONGO or DB:', 
     Object.keys(process.env).filter(k => k.toLowerCase().includes('mongo') || k.toLowerCase().includes('db_'))
 );
@@ -328,11 +330,14 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
 }
 
 async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions) {
-    // Try multiple template URLs in order of preference
+    // Use TEMPLATE_URL from environment variable (Vercel config)
+    const primaryTemplateURL = process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
+    
+    // Fallback URLs in case primary fails
     const templateURLs = [
-        'https://cdn.glitch.me/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973',
-        'https://cdn.glitch.com/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973',
-        'https://afba7f9d-6291-40ea-92bb-fe72daac96fd.cdn.glitch.me/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973'
+        primaryTemplateURL,
+        'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx',
+        'https://cdn.glitch.me/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973'
     ];
     
     try {
