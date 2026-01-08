@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const PizZip = require("pizzip");
 const DocxTemplater = require("docxtemplater");
-// const ImageModule = require('docxtemplater-image-module-free'); // Temporairement désactivé pour éviter les vulnérabilités
+const ImageModule = require('docxtemplater-image-module-free');
 const fetch = require('node-fetch');
 // const XLSX = require('xlsx'); // Temporairement désactivé pour éviter les vulnérabilités
 
@@ -379,8 +379,20 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
         
-        // Module d'image temporairement désactivé pour éviter les vulnérabilités critiques
+        // Configuration du module d'image
+        const imageOpts = {
+            centered: false,
+            getImage: function(tagValue) {
+                return tagValue;
+            },
+            getSize: function(img, tagValue, tagName) {
+                // Taille de la photo : 150x150 pixels
+                return [150, 150];
+            }
+        };
+        
         const doc = new DocxTemplater(zip, {
+            modules: [new ImageModule(imageOpts)],
             paragraphLoop: true,
             linebreaks: true,
             nullGetter: () => ""
@@ -390,7 +402,7 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
         const dataToRender = {
             ...documentData,
-            image: "" // Pas d'image pour éviter les vulnérabilités
+            image: imageBuffer || "" // Utiliser le buffer de l'image ou chaîne vide
         };
         
         console.log(`🔄 Rendering Word document for ${studentName}... Data keys: ${Object.keys(dataToRender).length}`);
