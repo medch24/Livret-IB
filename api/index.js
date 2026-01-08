@@ -952,5 +952,73 @@ process.on('SIGINT', async () => {
 console.log('✅ Server startup sequence complete');
 console.log('==================================');
 
+// ENDPOINT ADMINISTRATIF : Fusion des contributions DP2
+// URL: /api/admin/merge-dp2-names?secret=VOTRE_SECRET
+app.get('/api/admin/merge-dp2-names', async (req, res) => {
+    try {
+        // Protection simple (dans un environnement de production, utiliser un vrai système d'auth)
+        const secret = req.query.secret;
+        if (secret !== 'merge-dp2-2026') {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (!isDbConnected) {
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+
+        const mergeMappings = [
+            { fullName: 'Habib Lteif', firstName: 'Habib' },
+            { fullName: 'Salah Boumalouga', firstName: 'Salah' }
+        ];
+
+        const results = [];
+
+        for (const mapping of mergeMappings) {
+            // 1. Mettre à jour les contributions
+            const contribResult = await contributionsCollection.updateMany(
+                { studentSelected: mapping.fullName },
+                { $set: { studentSelected: mapping.firstName } }
+            );
+
+            // 2. Supprimer l'entrée avec le nom complet dans students
+            const deleteResult = await studentsCollection.deleteMany({
+                studentSelected: mapping.fullName
+            });
+
+            // 3. Vérifier que l'entrée avec le prénom existe
+            const studentExists = await studentsCollection.findOne({
+                studentSelected: mapping.firstName
+            });
+
+            results.push({
+                mapping: `${mapping.fullName} → ${mapping.firstName}`,
+                contributionsUpdated: contribResult.modifiedCount,
+                studentsDeleted: deleteResult.deletedCount,
+                studentExists: !!studentExists
+            });
+        }
+
+        // Vérification finale
+        const habibCount = await contributionsCollection.countDocuments({ studentSelected: 'Habib' });
+        const salahCount = await contributionsCollection.countDocuments({ studentSelected: 'Salah' });
+
+        res.json({
+            success: true,
+            results: results,
+            finalCounts: {
+                Habib: habibCount,
+                Salah: salahCount
+            }
+        });
+
+    } catch (error) {
+        console.error('❌ Error merging DP2 names:', error);
+        res.status(500).json({
+            error: 'Failed to merge DP2 names',
+            details: error.message
+        });
+    }
+});
+
 // Export pour Vercel
 module.exports = app;
