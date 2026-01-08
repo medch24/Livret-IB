@@ -375,56 +375,22 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
     const isDPClass = className === 'DP1' || className === 'DP2';
     console.log(`🎓 Class: ${className}, isDP: ${isDPClass}`);
     
-    // Sélectionner l'URL du modèle selon la classe
-    const primaryTemplateURL = isDPClass 
-        ? (process.env.TEMPLATE_URL_DP || 'https://docs.google.com/document/d/10x3kKNk9TgCnlHKY7SyZADB6ZCGeUhGd/export?format=docx')
-        : (process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx');
-    
-    // Fallback URLs in case primary fails
-    const templateURLs = isDPClass ? [
-        primaryTemplateURL,
-        'https://docs.google.com/document/d/10x3kKNk9TgCnlHKY7SyZADB6ZCGeUhGd/export?format=docx'
-    ] : [
-        primaryTemplateURL,
-        'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx',
-        'https://cdn.glitch.me/afba7f9d-6291-40ea-92bb-fe72daac96fd/Livret%20scolaire%20%20Modele%20400.docx?v=1743890021973'
-    ];
-    
     try {
-        let response = null;
-        let templateURL = null;
-        let lastError = null;
+        // Utiliser les templates locaux
+        const templatePath = isDPClass 
+            ? path.join(__dirname, '../public/templates/modele-dp.docx')
+            : path.join(__dirname, '../public/templates/modele-pei.docx');
         
-        // Try each URL until one works
-        for (const url of templateURLs) {
-            try {
-                console.log(`🔄 Attempting to fetch Word template from: ${url}`);
-                const testResponse = await fetch(url, { timeout: 10000 });
-                
-                if (testResponse.ok) {
-                    response = testResponse;
-                    templateURL = url;
-                    console.log(`✅ Successfully connected to template URL: ${url}`);
-                    break;
-                }
-                lastError = `HTTP ${testResponse.status}: ${testResponse.statusText}`;
-                console.log(`⚠️ URL failed with status ${testResponse.status}, trying next...`);
-            } catch (fetchErr) {
-                lastError = fetchErr.message;
-                console.log(`⚠️ URL failed with error: ${fetchErr.message}, trying next...`);
-            }
+        console.log(`📁 Loading template from: ${templatePath}`);
+        
+        // Vérifier si le fichier existe
+        if (!fs.existsSync(templatePath)) {
+            throw new Error(`Template file not found: ${templatePath}`);
         }
         
-        if (!response || !response.ok) {
-            const errorMsg = `All template URLs failed. Last error: ${lastError}. Please ensure the template is accessible.`;
-            console.error(`❌ ${errorMsg}`);
-            throw new Error(errorMsg);
-        }
-        
-        console.log(`✅ Template fetched successfully from: ${templateURL}`);
-        console.log(`✅ Template size: ${response.headers.get('content-length') || 'unknown'} bytes`);
-        const templateContent = await response.arrayBuffer();
-        console.log(`✅ Template content loaded: ${templateContent.byteLength} bytes`);
+        // Lire le template depuis le système de fichiers
+        const templateContent = fs.readFileSync(templatePath);
+        console.log(`✅ Template loaded: ${templateContent.length} bytes`);
         
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
@@ -747,16 +713,17 @@ app.post('/api/generateSingleWord', async (req, res) => {
         );
         
         // Générer nom de fichier pour le téléchargement
-        const timestamp = Date.now();
-        const safeStudentName = studentSelected.replace(/[\s/\\?%*:|"<>.]/g, '_');
-        const docFileName = `Livret-${safeStudentName}-${timestamp}.docx`;
+        // Format: Livret-[Nom Prénom]-Semestre.docx
+        const fullName = getFullStudentName(studentSelected); // Utiliser nom complet
+        const safeStudentName = fullName.replace(/[\s/\\?%*:|"<>.]/g, '_');
+        const docFileName = `Livret-${safeStudentName}-Semestre.docx`;
         
         // VERCEL COMPATIBLE: Stream direct sans écriture de fichier
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${docFileName}"`);
         res.setHeader('Content-Length', docBuffer.length);
         
-        console.log(`✅ Streaming Word document for ${studentSelected} (${docBuffer.length} bytes)`);
+        console.log(`✅ Streaming Word document for ${fullName} (${docBuffer.length} bytes)`);
         res.send(docBuffer);
         
     } catch (error) {
