@@ -258,6 +258,42 @@ async function fetchImage(url) {
     }
 }
 
+// Table de mapping: Prénom (DB) → Nom complet (affichage/Word)
+const studentNameMapping = {
+    // PEI 1
+    'Faysal': 'Faysal Achar',
+    'Bilal': 'Bilal Molina',
+    'Jad': 'Jad Mahayni',
+    'Manaf': 'Manaf Kotbi',
+    // PEI 2
+    'Ahmed': 'Ahmed Bouaziz',
+    'Ali': 'Ali Kutbi',
+    'Eyad': 'Eyad Hassan',
+    'Yasser': 'Yasser Younes',
+    // PEI 3
+    'Adam': 'Adam Kaaki',
+    'Ahmad': 'Ahmad Mahayni',
+    'Seifeddine': 'Seifeddine Ayadi',
+    'Wajih': 'Wajih Sabadine',
+    // PEI 4
+    'Abdulrahman': 'Abdulrahman Bouaziz',
+    'Samir': 'Samir Kaaki',
+    'Youssef': 'Youssef Baakak',
+    // DP 2
+    'Habib': 'Habib Lteif',
+    'Salah': 'Salah Boumalouga',
+    // Noms déjà complets (ne pas modifier)
+    'Mohamed Chalak': 'Mohamed Chalak',
+    'Mohamed Younes': 'Mohamed Younes',
+    'Mohamed Amine Sgheir': 'Mohamed Amine Sgheir',
+    'Mohamed Amine': 'Mohamed Amine Sgheir',
+    'Mohamed': 'Mohamed Chalak' // Par défaut si ambiguïté
+};
+
+function getFullStudentName(firstName) {
+    return studentNameMapping[firstName] || firstName;
+}
+
 function createCriteriaDataForTemplate(criteriaValues, originalSubjectName) {
     const criteriaNames = criteriaBySubject[originalSubjectName] || {};
     const templateData = {};
@@ -289,9 +325,12 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName) {
 }
 
 function prepareWordData(studentName, className, studentBirthdate, originalContributions) {
+    // Utiliser le nom complet pour le document Word
+    const fullName = getFullStudentName(studentName);
+    
     if (!originalContributions || originalContributions.length === 0) {
         return {
-            studentSelected: studentName,
+            studentSelected: fullName,
             className: className || "",
             studentBirthdate: studentBirthdate ? new Date(studentBirthdate).toLocaleDateString('fr-FR') : "",
             atlSummaryTable: [],
@@ -300,7 +339,7 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
     }
     
     const documentData = {
-        studentSelected: studentName,
+        studentSelected: fullName,
         className: className || "",
         studentBirthdate: studentBirthdate ? new Date(studentBirthdate).toLocaleDateString('fr-FR') : "",
         atlSummaryTable: [],
