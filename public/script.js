@@ -1430,7 +1430,7 @@ async function deleteContribution(contributionId) {
     }
 }
 
-// Génération de documents
+// Génération de documents - VERSION ZIP PAR CLASSE
 async function generateAllWordsInSection() {
     const section = currentData.sectionSelected;
     const classe = currentData.classSelected;
@@ -1446,65 +1446,83 @@ async function generateAllWordsInSection() {
         return;
     }
 
-    const confirmGeneration = confirm(`Vous allez générer ${studentList.length} livret(s) Word individuellement pour la classe ${classe}.\nChaque livret déclenchera un téléchargement séparé.\nVoulez-vous continuer ?`);
+    const confirmGeneration = confirm(`🎉 NOUVEAU: Vous allez générer UN SEUL FICHIER ZIP contenant les ${studentList.length} livret(s) Word pour la classe ${classe}.\n\n✅ Plus rapide\n✅ Plus fiable\n✅ Un seul téléchargement\n\nVoulez-vous continuer ?`);
     if (!confirmGeneration) {
         return;
     }
 
     progressBarContainer.style.display = 'block';
-    progressText.textContent = `Préparation... (0/${studentList.length})`;
-    progressBar.style.width = '0%';
+    progressText.textContent = `📦 Génération du ZIP en cours...`;
+    progressBar.style.width = '50%';
     document.getElementById('generateWordButton').disabled = true;
 
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (let i = 0; i < studentList.length; i++) {
-        const studentName = studentList[i];
-        const photoUrl = studentData[studentName]?.photo || null;
-
-        const currentProgress = Math.round((i / studentList.length) * 100);
-        progressText.textContent = `Génération: ${studentName} (${i + 1}/${studentList.length}) - ${currentProgress}%`;
-        progressBar.style.width = currentProgress + '%';
-
-        try {
-            const result = await downloadWordDocument({
-                studentSelected: studentName,
+    try {
+        console.log(`📦 Appel API /api/generateClassZip pour ${classe} (${section})`);
+        
+        const response = await fetch('/api/generateClassZip', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
                 classSelected: classe,
-                sectionSelected: section,
-                studentPhotoUrl: photoUrl
-            });
+                sectionSelected: section
+            })
+        });
 
-            if (result.success) {
-                successCount++;
-            } else {
-                throw new Error(result.error || 'Erreur génération');
+        if (!response.ok) {
+            const errorDetails = await response.text();
+            let errorMessage = `Erreur ${response.status}: `;
+            try {
+                const jsonError = JSON.parse(errorDetails);
+                errorMessage += jsonError.error || jsonError.details || errorDetails;
+            } catch(e) {
+                errorMessage += errorDetails;
             }
-        } catch (error) {
-            console.error(`Erreur génération pour ${studentName}:`, error);
-            alert(`Erreur génération Word pour ${studentName}: ${error.message}`);
-            errorCount++;
+            throw new Error(errorMessage);
         }
 
-        const progressAfter = Math.round(((i + 1) / studentList.length) * 100);
-        progressBar.style.width = progressAfter + '%';
-        progressText.textContent = `Terminé: ${studentName} (${i + 1}/${studentList.length}) - ${progressAfter}%`;
-
-        if (i < studentList.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        // Télécharger le ZIP
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('Content-Disposition');
+        let filename = `Livrets-${classe}-${section}.zip`;
+        
+        if (contentDisposition) {
+            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1].replace(/['"]/g, '');
+            }
         }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        progressBar.style.width = '100%';
+        progressText.textContent = `✅ ZIP téléchargé: ${filename} (${studentList.length} livrets)`;
+        
+        console.log(`✅ ZIP téléchargé avec succès: ${filename}`);
+
+    } catch (error) {
+        console.error('❌ Erreur génération ZIP:', error);
+        progressBar.style.width = '100%';
+        progressText.textContent = `❌ Erreur: ${error.message}`;
+        alert(`Erreur lors de la génération du ZIP:\n${error.message}`);
     }
 
-    progressBar.style.width = '100%';
-    progressText.textContent = `Terminé ! (${successCount} succès, ${errorCount} erreurs)`;
     setTimeout(() => {
         progressBarContainer.style.display = 'none';
         progressBar.style.width = '0%';
         progressText.textContent = '0%';
-    }, 3000);
+    }, 5000);
+    
     document.getElementById('generateWordButton').disabled = false;
-
-    console.log(`Génération terminée. Succès: ${successCount}, Erreurs: ${errorCount}`);
 }
 
 function handleDownloadLink(data) {
