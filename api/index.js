@@ -454,12 +454,10 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const imageOpts = {
             centered: false,
             getImage: function(tagValue, tagName) {
-                // Si tagValue est un Buffer valide, on l'utilise
-                if (Buffer.isBuffer(tagValue) && tagValue.length > 0) {
+                console.log(`🖼️ ImageModule.getImage called for tag: ${tagName}`);
+                if (tagValue && (Buffer.isBuffer(tagValue) || typeof tagValue === 'string')) {
                     return tagValue;
                 }
-                // Sinon, on retourne le pixel transparent (fallback)
-                console.log('⚠️ Image manquante ou invalide, utilisation pixel transparent');
                 return TRANSPARENT_PIXEL;
             },
             getSize: function(img, tagValue, tagName) {
@@ -486,9 +484,11 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         
         // Gestion de l'image : Si valide on la passe, sinon null (le module gérera le fallback)
         if (imageBuffer && imageBuffer.length > 0) {
+            // On injecte l'image dans TOUTES les balises possibles pour être sûr
             dataToRender.image = imageBuffer;
             dataToRender.studentPhoto = imageBuffer;
-            console.log(`✅ Image included in data as 'image' and 'studentPhoto' (${imageBuffer.length} bytes)`);
+            dataToRender.photo = imageBuffer;
+            console.log(`✅ Image injectée dans 'image', 'studentPhoto', 'photo' (${imageBuffer.length} bytes)`);
         } else {
             dataToRender.image = null; // Déclenchera le pixel transparent
             console.log(`⚠️ No image provided, placeholder will be used`);
