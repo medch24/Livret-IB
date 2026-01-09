@@ -90,7 +90,7 @@ const criteriaBySubject = {
     "Art visuel":{A:"Connaissances et compréhension",B:"Développement des compétences",C:"Pensée créative",D:"Réaction"},
     "Éducation physique et sportive":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
     "Acquisition de langue (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
-    "Acquisition de langue (اللغة العربية)":{A:"أ الاستماع",B:"ب القراءة",C:"ج التحدث",D:"د الكتابة"},
+    "Acquisition de langue (اللغة العربية)":{A:"الاستماع",B:"القراءة",C:"التحدث",D:"الكتابة"},
     // Matières DP
     "Langue et Littérature (Français NM)":{AO1:"Connaissances et compréhension des œuvres littéraires et des textes non-littéraires",AO2:"Application des compétences d'analyse et d'interprétation",AO3:"Communication claire, précise et efficace",AO4:"Maîtrise de l'usage de la langue"},
     "Langue Anglaise (NM)":{AO1:"Communication d'idées (interaction orale et écrite)",AO2:"Compréhension des messages (lecture, écoute)",AO3:"Maîtrise de la langue (précision, vocabulaire, prononciation/orthographe)",AO4:"Développement de la sensibilité interculturelle"},
