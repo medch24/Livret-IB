@@ -253,7 +253,7 @@ async function fetchImage(url) {
         console.log(`Image fetched, size: ${buffer.length} bytes`);
         
         // Limite de taille : 500KB (pour éviter les erreurs Word)
-        const MAX_IMAGE_SIZE = 500 * 1024; // 500KB
+        const MAX_IMAGE_SIZE = 200 * 1024; // 500KB
         if (buffer.length > MAX_IMAGE_SIZE) {
             console.warn(`⚠️ Image too large (${buffer.length} bytes), will use smaller size in template`);
             // On retourne quand même l'image mais on ajuste la taille dans le template
@@ -413,7 +413,7 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                 // Taille de la photo : 100x100 pixels (réduit pour éviter erreurs Word)
                 // IMPORTANT: Taille réduite pour la section garçons pour éviter l'erreur
                 // "Word a rencontré une erreur lors de l'ouverture du fichier"
-                return [100, 100];
+                return [50, 50];
             }
         };
         
