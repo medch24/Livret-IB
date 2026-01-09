@@ -840,15 +840,30 @@ app.post('/api/generateClassZip', async (req, res) => {
         
         console.log(`📦 Génération ZIP pour classe: ${classSelected} (${sectionSelected})`);
         
-        // Récupérer tous les élèves de la classe
-        const classStudents = await studentsCollection.find({
+        // CORRECTION: Récupérer les élèves DISTINCTS depuis la collection contributions
+        // car la collection students ne contient pas classSelected/sectionSelected
+        const distinctStudents = await contributionsCollection.distinct('studentSelected', {
             classSelected: classSelected,
             sectionSelected: sectionSelected
-        }).toArray();
+        });
         
-        if (classStudents.length === 0) {
+        if (distinctStudents.length === 0) {
             return res.status(404).json({ error: 'Aucun élève trouvé pour cette classe' });
         }
+        
+        console.log(`✅ ${distinctStudents.length} élèves distincts trouvés:`, distinctStudents);
+        
+        // Récupérer les infos complètes de chaque élève depuis students
+        const classStudents = await Promise.all(
+            distinctStudents.map(async (studentName) => {
+                const studentInfo = await studentsCollection.findOne({ studentSelected: studentName });
+                return {
+                    studentSelected: studentName,
+                    studentBirthdate: studentInfo?.studentBirthdate,
+                    studentPhotoUrl: studentInfo?.studentPhotoUrl
+                };
+            })
+        );
         
         console.log(`✅ ${classStudents.length} élèves trouvés`);
         
