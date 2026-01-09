@@ -292,10 +292,17 @@ function rebuildCriteriaTable() {
     
     // Construire le corps du tableau
     let bodyHTML = '';
+    
+    // Obtenir les noms des critères pour la matière actuelle
+    const criteriaNames = criteriaBySubject[currentData.subjectSelected] || {};
+    
     criteriaKeys.forEach((key, index) => {
         const criteriaData = currentData.criteriaValues[key] || {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
         
-        bodyHTML += `<tr data-criteria="${key}"><td>${key}</td>`;
+        // Afficher "A: Nom du critère" au lieu de juste "A"
+        const criteriaLabel = criteriaNames[key] ? `${key}: ${criteriaNames[key]}` : `Critère ${key}`;
+        
+        bodyHTML += `<tr data-criteria="${key}"><td>${criteriaLabel}</td>`;
         
         // Colonnes pour Semestre 1
         if (unitsSem1 === 1) {
@@ -624,9 +631,11 @@ function rebuildCriteriaTableArabic() {
     // Construire le corps du tableau
     let bodyHTML = '';
     criteriaKeys.forEach((key, index) => {
+        // Afficher "A: الاستماع" au lieu de juste "الاستماع"
         const criterionName = criteriaNames[key] || key;
+        const criteriaLabel = criteriaNames[key] ? `${key}: ${criterionName}` : key;
         bodyHTML += `<tr data-criteria="${key}">`;
-        bodyHTML += `<td>${criterionName}</td>`;
+        bodyHTML += `<td>${criteriaLabel}</td>`;
         
         // Semestre 1
         if (unitsSem1 > 1) {

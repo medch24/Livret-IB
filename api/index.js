@@ -297,7 +297,7 @@ function getFullStudentName(firstName) {
     return studentNameMapping[firstName] || firstName;
 }
 
-function createCriteriaDataForTemplate(criteriaValues, originalSubjectName) {
+function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, className) {
     const criteriaNames = criteriaBySubject[originalSubjectName] || {};
     const templateData = {};
     let totalLevel = 0;
@@ -359,7 +359,7 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
             reflexion: comm[4] || "-"
         });
         
-        const criteriaTemplateData = createCriteriaDataForTemplate(c.criteriaValues, c.subjectSelected);
+        const criteriaTemplateData = createCriteriaDataForTemplate(c.criteriaValues, c.subjectSelected, className);
         const subjectContributionData = {
             subjectSelected: c.subjectSelected,
             teacherName: c.teacherName || "N/A",
