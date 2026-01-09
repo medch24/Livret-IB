@@ -154,11 +154,22 @@ async function downloadWordDocument(data) {
             body: JSON.stringify(data)
         });
         
+        // CORRECTION IMPORTANTE : Vérifier si la requête a réussi
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            // Si erreur (ex: 500), on lit le message d'erreur au lieu de télécharger
+            const errorDetails = await response.text(); 
+            let errorMessage = `Erreur ${response.status}: `;
+            try {
+                // Essayer de parser si c'est du JSON
+                const jsonError = JSON.parse(errorDetails);
+                errorMessage += jsonError.error || jsonError.details || errorDetails;
+            } catch(e) {
+                errorMessage += errorDetails;
+            }
+            throw new Error(errorMessage);
         }
         
-        // Récupérer le nom du fichier depuis les headers
+        // Si tout va bien, on télécharge
         const contentDisposition = response.headers.get('Content-Disposition');
         let filename = `Livret-${data.studentSelected}-${Date.now()}.docx`;
         if (contentDisposition) {
@@ -168,10 +179,7 @@ async function downloadWordDocument(data) {
             }
         }
         
-        // Récupérer le contenu binaire
         const blob = await response.blob();
-        
-        // Créer le lien de téléchargement
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -185,7 +193,8 @@ async function downloadWordDocument(data) {
         
     } catch (error) {
         console.error(`Word download failed:`, error);
-        throw error;
+        // On renvoie l'erreur pour qu'elle soit affichée dans l'alerte
+        return { success: false, error: error.message }; 
     }
 }
 

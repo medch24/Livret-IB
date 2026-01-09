@@ -19,6 +19,9 @@ const archiver = require('archiver');
 const Jimp = require('jimp');
 // const XLSX = require('xlsx'); // Temporairement désactivé pour éviter les vulnérabilités
 
+// Pixel transparent 1x1 (PNG) en base64 pour éviter les erreurs Word si pas d'image
+const TRANSPARENT_PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+
 // --- Configuration ---
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -443,50 +446,50 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
         
-        // CORRECTION: Gestion sécurisée de l'image (optionnelle)
-        // Si pas d'image, ne pas utiliser le module d'image
-        let docTemplaterOptions = {
+        // --- CORRECTION MAJEURE ICI ---
+        // Toujours charger le module image pour gérer la balise {%image} du template
+        // Si pas d'image, on met un pixel transparent pour éviter la corruption du fichier
+        
+        const imageOpts = {
+            centered: false,
+            getImage: function(tagValue, tagName) {
+                // Si tagValue est un Buffer valide, on l'utilise
+                if (Buffer.isBuffer(tagValue) && tagValue.length > 0) {
+                    return tagValue;
+                }
+                // Sinon, on retourne le pixel transparent (fallback)
+                console.log('⚠️ Image manquante ou invalide, utilisation pixel transparent');
+                return TRANSPARENT_PIXEL;
+            },
+            getSize: function(img, tagValue, tagName) {
+                // Taille fixe 80x80px
+                return [80, 80];
+            }
+        };
+
+        const docTemplaterOptions = {
             paragraphLoop: true,
             linebreaks: true,
+            modules: [new ImageModule(imageOpts)], // Module toujours actif
             nullGetter: () => ""
         };
-        
-        // Ajouter le module d'image SEULEMENT si l'image existe et est valide
-        if (imageBuffer && imageBuffer.length > 0) {
-            console.log(`📷 Image buffer found: ${imageBuffer.length} bytes`);
-            const imageOpts = {
-                centered: false,
-                getImage: function(tagValue) {
-                    return tagValue;
-                },
-                getSize: function(img, tagValue, tagName) {
-                    // Taille d'affichage correspondant à l'image redimensionnée (80x80px)
-                    return [80, 80];
-                }
-            };
-            docTemplaterOptions.modules = [new ImageModule(imageOpts)];
-        } else {
-            console.log(`⚠️ No image buffer, skipping image module`);
-        }
         
         const doc = new DocxTemplater(zip, docTemplaterOptions);
         
         console.log(`🔄 Preparing Word data for ${studentName}...`);
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
         
-        // CORRECTION: N'inclure l'image que si elle existe
         const dataToRender = {
             ...documentData
         };
         
-        // Ajouter l'image seulement si elle est présente et valide
+        // Gestion de l'image : Si valide on la passe, sinon null (le module gérera le fallback)
         if (imageBuffer && imageBuffer.length > 0) {
             dataToRender.image = imageBuffer;
-            console.log(`✅ Image included in data`);
+            console.log(`✅ Image included in data (${imageBuffer.length} bytes)`);
         } else {
-            // Si pas d'image, utiliser une chaîne vide pour éviter erreur template
-            dataToRender.image = "";
-            console.log(`⚠️ No image, using empty string`);
+            dataToRender.image = null; // Déclenchera le pixel transparent
+            console.log(`⚠️ No image provided, placeholder will be used`);
         }
         
         console.log(`🔄 Rendering Word document for ${studentName}... Data keys: ${Object.keys(dataToRender).length}`);
