@@ -15,6 +15,8 @@ const PizZip = require("pizzip");
 const DocxTemplater = require("docxtemplater");
 const ImageModule = require('docxtemplater-image-module-free');
 const fetch = require('node-fetch');
+const archiver = require('archiver');
+const sharp = require('sharp');
 // const XLSX = require('xlsx'); // Temporairement désactivé pour éviter les vulnérabilités
 
 // --- Configuration ---
@@ -255,31 +257,49 @@ async function fetchImage(url) {
             return null;
         }
         
-        const buffer = Buffer.from(await response.arrayBuffer());
-        console.log(`✅ Image fetched: ${buffer.length} bytes`);
-        
-        // CORRECTION: Limite stricte de taille pour éviter corruption Word
-        const MAX_IMAGE_SIZE = 100 * 1024; // 100KB max
-        if (buffer.length > MAX_IMAGE_SIZE) {
-            console.warn(`⚠️ Image trop large (${buffer.length} bytes), ignorée pour éviter corruption`);
-            return null; // Retourner null au lieu de l'image trop grande
-        }
+        const originalBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`✅ Image fetched: ${originalBuffer.length} bytes`);
         
         // Vérifier que c'est bien une image (magic bytes)
-        const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50;
-        const isJPG = buffer[0] === 0xFF && buffer[1] === 0xD8;
+        const isPNG = originalBuffer[0] === 0x89 && originalBuffer[1] === 0x50;
+        const isJPG = originalBuffer[0] === 0xFF && originalBuffer[1] === 0xD8;
         
         if (!isPNG && !isJPG) {
             console.warn(`⚠️ Format d'image invalide, ignorée`);
             return null;
         }
         
-        return buffer;
+        // SOLUTION DÉFINITIVE: Redimensionner et compresser l'image avec Sharp
+        // Taille fixe: 80x80 pixels en JPEG qualité 80%
+        const resizedBuffer = await sharp(originalBuffer)
+            .resize(80, 80, {
+                fit: 'cover',
+                position: 'center'
+            })
+            .jpeg({ quality: 80 })
+            .toBuffer();
+        
+        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (80x80px)`);
+        
+        // Vérifier la taille finale (sécurité supplémentaire)
+        const MAX_IMAGE_SIZE = 50 * 1024; // 50KB max après compression
+        if (resizedBuffer.length > MAX_IMAGE_SIZE) {
+            // Réduire encore la qualité si trop grande
+            const finalBuffer = await sharp(originalBuffer)
+                .resize(80, 80, { fit: 'cover', position: 'center' })
+                .jpeg({ quality: 60 })
+                .toBuffer();
+            
+            console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes`);
+            return finalBuffer;
+        }
+        
+        return resizedBuffer;
     } catch (error) {
         if (error.name === 'AbortError') {
             console.error(`⏱️ Image fetch timeout après 5s`);
         } else {
-            console.error(`❌ Error fetching image:`, error.message);
+            console.error(`❌ Error fetching/processing image:`, error.message);
         }
         return null;
     }
@@ -440,8 +460,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                     return tagValue;
                 },
                 getSize: function(img, tagValue, tagName) {
-                    // Taille très réduite pour éviter corruption
-                    return [40, 40];
+                    // Taille d'affichage correspondant à l'image redimensionnée (80x80px)
+                    return [80, 80];
                 }
             };
             docTemplaterOptions.modules = [new ImageModule(imageOpts)];
@@ -799,6 +819,122 @@ app.post('/api/generateSingleWord', async (req, res) => {
         }
         
         res.status(500).json({ error: errorMessage });
+    }
+});
+
+// Nouvelle route: Générer un ZIP pour toute une classe
+app.post('/api/generateClassZip', async (req, res) => {
+    // Le middleware ensureDbConnection garantit que la DB est connectée
+    try {
+        const { classSelected, sectionSelected } = req.body;
+        
+        if (!classSelected || !sectionSelected) {
+            return res.status(400).json({ error: 'Classe et section sont requis' });
+        }
+        
+        console.log(`📦 Génération ZIP pour classe: ${classSelected} (${sectionSelected})`);
+        
+        // Récupérer tous les élèves de la classe
+        const classStudents = await studentsCollection.find({
+            classSelected: classSelected,
+            sectionSelected: sectionSelected
+        }).toArray();
+        
+        if (classStudents.length === 0) {
+            return res.status(404).json({ error: 'Aucun élève trouvé pour cette classe' });
+        }
+        
+        console.log(`✅ ${classStudents.length} élèves trouvés`);
+        
+        // Créer un fichier ZIP en mémoire
+        const archive = archiver('zip', {
+            zlib: { level: 9 } // Compression maximale
+        });
+        
+        // Headers pour le téléchargement ZIP
+        const zipFileName = `Livrets-${classSelected}-${sectionSelected}.zip`;
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
+        
+        // Pipe l'archive vers la réponse
+        archive.pipe(res);
+        
+        // Gérer les erreurs de l'archive
+        archive.on('error', (err) => {
+            console.error('❌ Erreur archive:', err);
+            throw err;
+        });
+        
+        // Générer un document Word pour chaque élève
+        let successCount = 0;
+        let errorCount = 0;
+        
+        for (const student of classStudents) {
+            try {
+                const studentName = student.studentSelected;
+                console.log(`📄 Génération pour: ${studentName}`);
+                
+                // Récupérer les contributions de l'élève
+                const studentContributions = await contributionsCollection.find({
+                    studentSelected: studentName,
+                    sectionSelected: sectionSelected
+                }).toArray();
+                
+                // Récupérer l'image de l'élève
+                let imageBuffer = null;
+                if (student.studentPhotoUrl && student.studentPhotoUrl.startsWith('http')) {
+                    imageBuffer = await fetchImage(student.studentPhotoUrl);
+                    if (imageBuffer) {
+                        console.log(`✅ Photo récupérée pour ${studentName}: ${imageBuffer.length} bytes`);
+                    } else {
+                        console.log(`⚠️ Pas de photo pour ${studentName}`);
+                    }
+                }
+                
+                // Créer le document Word
+                const docBuffer = await createWordDocumentBuffer(
+                    studentName,
+                    classSelected,
+                    student.studentBirthdate,
+                    imageBuffer,
+                    studentContributions
+                );
+                
+                // Nom du fichier dans le ZIP
+                const fullName = getFullStudentName(studentName);
+                const safeStudentName = fullName
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[\s]+/g, '-')
+                    .replace(/[^a-zA-Z0-9\-]/g, '')
+                    .replace(/\-+/g, '-')
+                    .replace(/^\-|\-$/g, '');
+                const docFileName = `Livret-${safeStudentName}.docx`;
+                
+                // Ajouter le fichier au ZIP
+                archive.append(docBuffer, { name: docFileName });
+                successCount++;
+                console.log(`✅ ${successCount}/${classStudents.length}: ${docFileName}`);
+                
+            } catch (error) {
+                errorCount++;
+                console.error(`❌ Erreur pour ${student.studentSelected}:`, error.message);
+                // Continuer avec les autres élèves même en cas d'erreur
+            }
+        }
+        
+        // Finaliser l'archive
+        await archive.finalize();
+        
+        console.log(`✅ ZIP généré: ${successCount} réussites, ${errorCount} erreurs`);
+        
+    } catch (error) {
+        console.error('❌ Erreur génération ZIP:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: 'Erreur génération ZIP',
+                details: error.message 
+            });
+        }
     }
 });
 
