@@ -241,22 +241,46 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 
 async function fetchImage(url) {
     try {
-        console.log(`Fetching image: ${url}`);
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const buffer = Buffer.from(await response.arrayBuffer());
-        console.log(`Image fetched, size: ${buffer.length} bytes`);
+        console.log(`📷 Fetching image: ${url.substring(0, 50)}...`);
         
-        // Limite de taille : 500KB (pour éviter les erreurs Word)
-        const MAX_IMAGE_SIZE = 200 * 1024; // 500KB
+        // Timeout de 5 secondes pour éviter blocage
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+            console.warn(`⚠️ Image fetch failed: ${response.status}`);
+            return null;
+        }
+        
+        const buffer = Buffer.from(await response.arrayBuffer());
+        console.log(`✅ Image fetched: ${buffer.length} bytes`);
+        
+        // CORRECTION: Limite stricte de taille pour éviter corruption Word
+        const MAX_IMAGE_SIZE = 100 * 1024; // 100KB max
         if (buffer.length > MAX_IMAGE_SIZE) {
-            console.warn(`⚠️ Image too large (${buffer.length} bytes), will use smaller size in template`);
-            // On retourne quand même l'image mais on ajuste la taille dans le template
+            console.warn(`⚠️ Image trop large (${buffer.length} bytes), ignorée pour éviter corruption`);
+            return null; // Retourner null au lieu de l'image trop grande
+        }
+        
+        // Vérifier que c'est bien une image (magic bytes)
+        const isPNG = buffer[0] === 0x89 && buffer[1] === 0x50;
+        const isJPG = buffer[0] === 0xFF && buffer[1] === 0xD8;
+        
+        if (!isPNG && !isJPG) {
+            console.warn(`⚠️ Format d'image invalide, ignorée`);
+            return null;
         }
         
         return buffer;
     } catch (error) {
-        console.error(`Error fetching image:`, error.message);
+        if (error.name === 'AbortError') {
+            console.error(`⏱️ Image fetch timeout après 5s`);
+        } else {
+            console.error(`❌ Error fetching image:`, error.message);
+        }
         return null;
     }
 }
@@ -373,57 +397,77 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
 }
 
 async function createWordDocumentBuffer(studentName, className, studentBirthdate, imageBuffer, originalContributions) {
-    // Déterminer si c'est une classe DP1 ou DP2
-    const isDPClass = className === 'DP1' || className === 'DP2';
-    console.log(`🎓 Class: ${className}, isDP: ${isDPClass}`);
+    // CORRECTION: Toutes les classes (PEI et DP) utilisent le MÊME modèle
+    console.log(`🎓 Class: ${className} - Utilisation du modèle PEI unique`);
     
     try {
-        // Utiliser les templates locaux
-        const templatePath = isDPClass 
-            ? path.join(__dirname, '../public/templates/modele-dp.docx')
-            : path.join(__dirname, '../public/templates/modele-pei.docx');
+        // Utiliser l'URL du template depuis les variables d'environnement
+        const TEMPLATE_URL = process.env.TEMPLATE_URL;
         
-        console.log(`📁 Loading template from: ${templatePath}`);
-        
-        // Vérifier si le fichier existe
-        if (!fs.existsSync(templatePath)) {
-            throw new Error(`Template file not found: ${templatePath}`);
+        if (!TEMPLATE_URL) {
+            throw new Error('TEMPLATE_URL not found in environment variables');
         }
         
-        // Lire le template depuis le système de fichiers
-        const templateContent = fs.readFileSync(templatePath);
+        console.log(`📁 Loading template from: ${TEMPLATE_URL.substring(0, 50)}...`);
+        
+        // Télécharger le template depuis l'URL
+        const templateResponse = await fetch(TEMPLATE_URL);
+        if (!templateResponse.ok) {
+            throw new Error(`Failed to fetch template: ${templateResponse.status} ${templateResponse.statusText}`);
+        }
+        
+        const templateArrayBuffer = await templateResponse.arrayBuffer();
+        const templateContent = Buffer.from(templateArrayBuffer);
         console.log(`✅ Template loaded: ${templateContent.length} bytes`);
         
         const zip = new PizZip(templateContent);
         console.log(`✅ PizZip created successfully`);
         
-        // Configuration du module d'image
-        const imageOpts = {
-            centered: false,
-            getImage: function(tagValue) {
-                return tagValue;
-            },
-            getSize: function(img, tagValue, tagName) {
-                // Taille de la photo : 100x100 pixels (réduit pour éviter erreurs Word)
-                // IMPORTANT: Taille réduite pour la section garçons pour éviter l'erreur
-                // "Word a rencontré une erreur lors de l'ouverture du fichier"
-                return [50, 50];
-            }
-        };
-        
-        const doc = new DocxTemplater(zip, {
-            modules: [new ImageModule(imageOpts)],
+        // CORRECTION: Gestion sécurisée de l'image (optionnelle)
+        // Si pas d'image, ne pas utiliser le module d'image
+        let docTemplaterOptions = {
             paragraphLoop: true,
             linebreaks: true,
             nullGetter: () => ""
-        });
+        };
+        
+        // Ajouter le module d'image SEULEMENT si l'image existe et est valide
+        if (imageBuffer && imageBuffer.length > 0) {
+            console.log(`📷 Image buffer found: ${imageBuffer.length} bytes`);
+            const imageOpts = {
+                centered: false,
+                getImage: function(tagValue) {
+                    return tagValue;
+                },
+                getSize: function(img, tagValue, tagName) {
+                    // Taille très réduite pour éviter corruption
+                    return [40, 40];
+                }
+            };
+            docTemplaterOptions.modules = [new ImageModule(imageOpts)];
+        } else {
+            console.log(`⚠️ No image buffer, skipping image module`);
+        }
+        
+        const doc = new DocxTemplater(zip, docTemplaterOptions);
         
         console.log(`🔄 Preparing Word data for ${studentName}...`);
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
+        
+        // CORRECTION: N'inclure l'image que si elle existe
         const dataToRender = {
-            ...documentData,
-            image: imageBuffer || "" // Utiliser le buffer de l'image ou chaîne vide
+            ...documentData
         };
+        
+        // Ajouter l'image seulement si elle est présente et valide
+        if (imageBuffer && imageBuffer.length > 0) {
+            dataToRender.image = imageBuffer;
+            console.log(`✅ Image included in data`);
+        } else {
+            // Si pas d'image, utiliser une chaîne vide pour éviter erreur template
+            dataToRender.image = "";
+            console.log(`⚠️ No image, using empty string`);
+        }
         
         console.log(`🔄 Rendering Word document for ${studentName}... Data keys: ${Object.keys(dataToRender).length}`);
         doc.render(dataToRender);
