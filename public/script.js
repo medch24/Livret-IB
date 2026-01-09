@@ -38,6 +38,7 @@ const studentBirthdateInput = document.getElementById('studentBirthdate');
 
 // Données des étudiants - PRÉNOMS (pour la DB) avec mapping vers noms complets
 const studentData = {
+    // Garçons - Tous avec nom complet
     'Faysal': {fullName: 'Faysal Achar', birthdate: '2014-04-15', photo: 'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-Ii-V8VrC'},
     'Bilal': {fullName: 'Bilal Molina', birthdate: '2015-02-15', photo: 'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyTlUDEVu'},
     'Jad': {fullName: 'Jad Mahayni', birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1VLvrWjeJwaClf4pSaLiwjnS79N-HrsFr'},
@@ -59,20 +60,20 @@ const studentData = {
     'Habib': {fullName: 'Habib Lteif', birthdate: '2008-10-15', photo: 'https://lh3.googleusercontent.com/d/13u4y6JIyCBVQ_9PCwYhh837byyK9g8pF'},
     'Salah': {fullName: 'Salah Boumalouga', birthdate: '2008-07-15', photo: 'https://lh3.googleusercontent.com/d/1IG8S_i6jD8O6C2QD_nwLxrG932QgIVXu'},
     // Données des filles
-    'Yomna Masrouhi': {birthdate: '2009-09-07', photo: null},
-    'Isra Elalmi': {birthdate: '2008-03-25', photo: null},
-    'Naya Sabbidine': {birthdate: '2014-02-28', photo: null},
-    'Israa Alkattan': {birthdate: '2013-09-19', photo: null},
-    'Dina Tlili': {birthdate: '2012-12-22', photo: null},
-    'Lina Tlili': {birthdate: '2012-12-22', photo: null},
-    'Cynthia Fadlallah': {birthdate: '2013-12-06', photo: null},
-    'Neyla Molina': {birthdate: '2014-01-13', photo: null},
-    'Jawahair Eshmawi': {birthdate: '2012-03-19', photo: null},
-    'Yousr Letaief': {birthdate: '2011-06-14', photo: null},
-    'Sarah Aldebasy': {birthdate: '2011-07-24', photo: null},
-    'Maria Wahib': {birthdate: '2011-07-16', photo: null},
-    'Badia Khaldi': {birthdate: '2010-12-23', photo: null},
-    'Luluwah Alghabashi': {birthdate: '2010-04-29', photo: null}
+    'Yomna Masrouhi': {fullName: 'Yomna Masrouhi', birthdate: '2009-09-07', photo: null},
+    'Isra Elalmi': {fullName: 'Isra Elalmi', birthdate: '2008-03-25', photo: null},
+    'Naya Sabbidine': {fullName: 'Naya Sabbidine', birthdate: '2014-02-28', photo: null},
+    'Israa Alkattan': {fullName: 'Israa Alkattan', birthdate: '2013-09-19', photo: null},
+    'Dina Tlili': {fullName: 'Dina Tlili', birthdate: '2012-12-22', photo: null},
+    'Lina Tlili': {fullName: 'Lina Tlili', birthdate: '2012-12-22', photo: null},
+    'Cynthia Fadlallah': {fullName: 'Cynthia Fadlallah', birthdate: '2013-12-06', photo: null},
+    'Neyla Molina': {fullName: 'Neyla Molina', birthdate: '2014-01-13', photo: null},
+    'Jawahair Eshmawi': {fullName: 'Jawahair Eshmawi', birthdate: '2012-03-19', photo: null},
+    'Yousr Letaief': {fullName: 'Yousr Letaief', birthdate: '2011-06-14', photo: null},
+    'Sarah Aldebasy': {fullName: 'Sarah Aldebasy', birthdate: '2011-07-24', photo: null},
+    'Maria Wahib': {fullName: 'Maria Wahib', birthdate: '2011-07-16', photo: null},
+    'Badia Khaldi': {fullName: 'Badia Khaldi', birthdate: '2010-12-23', photo: null},
+    'Luluwah Alghabashi': {fullName: 'Luluwah Alghabashi', birthdate: '2010-04-29', photo: null}
 };
 
 // Matières par classe - TOUTES LES CLASSES
@@ -82,8 +83,8 @@ const subjectsByClass = {
     PEI3: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
     PEI4: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
     PEI5: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    DP1: ["Langue et Littérature (Français NM)", "Langue Anglaise (NM)", "Géographie (NM)", "Mathématiques AA (NS)", "Biologie (NS)", "Physique (NS)", "Théorie de la Connaissance (TdC)", "Mémoire (EE)", "CAS"],
-    DP2: ["Langue et Littérature (Français NM)", "Langue Anglaise (NM)", "Géographie (NM)", "Mathématiques AA (NS)", "Biologie (NS)", "Physique (NS)", "Théorie de la Connaissance (TdC)", "Mémoire (EE)", "CAS"]
+    DP1: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
+    DP2: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"]
 };
 
 // Critères par matière - TOUTES LES MATIÈRES AVEC CRITÈRES SPÉCIFIQUES
@@ -97,7 +98,7 @@ const criteriaBySubject = {
     "Art visuel": {A: "Connaissances et compréhension", B: "Développement des compétences", C: "Pensée créative", D: "Réaction"},
     "Éducation physique et sportive": {A: "Connaissances et compréhension", B: "Planification", C: "Application et exécution", D: "Réflexion et amélioration"},
     "Acquisition de langue (Anglais)": {A: "Listening", B: "Reading", C: "Speaking", D: "Writing"},
-    "Acquisition de langue (اللغة العربية)": {A: "أ الاستماع", B: "ب القراءة", C: "ج التحدث", D: "د الكتابة"},
+    "Acquisition de langue (اللغة العربية)": {A: "الاستماع", B: "القراءة", C: "التحدث", D: "الكتابة"},
     
     // Matières DP (DP1 et DP2)
     "Langue et Littérature (Français NM)": {AO1: "Connaissances et compréhension des œuvres littéraires et des textes non-littéraires", AO2: "Application des compétences d'analyse et d'interprétation", AO3: "Communication claire, précise et efficace", AO4: "Maîtrise de l'usage de la langue"},
@@ -236,35 +237,39 @@ function rebuildCriteriaTable() {
     const unitsSem1 = currentData.unitsSem1;
     const unitsSem2 = currentData.unitsSem2;
     
+    // Vérifier si c'est la matière arabe
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    
     const thead = document.getElementById('criteriaTableHead');
     const tbody = document.getElementById('criteriaTableBody');
     
-    // Construire les en-têtes
-    let headerHTML = '<tr><th>Critères</th>';
+    // Construire les en-têtes (en arabe si matière arabe)
+    let headerHTML = '<tr>';
+    headerHTML += isArabicSubject ? '<th>المعايير</th>' : '<th>Critères</th>';
     
     // En-têtes pour Semestre 1
     if (unitsSem1 === 1) {
-        headerHTML += `<th>Semestre 1 (/${maxValue})</th>`;
+        headerHTML += isArabicSubject ? `<th>الفصل الأول (/${maxValue})</th>` : `<th>Semestre 1 (/${maxValue})</th>`;
     } else {
         for (let i = 1; i <= unitsSem1; i++) {
-            headerHTML += `<th>S1-U${i} (/${maxValue})</th>`;
+            headerHTML += isArabicSubject ? `<th>ف1-و${i} (/${maxValue})</th>` : `<th>S1-U${i} (/${maxValue})</th>`;
         }
-        headerHTML += `<th style="background-color: #e7f3ff;">Moyenne S1 (/${maxValue})</th>`;
+        headerHTML += isArabicSubject ? `<th style="background-color: #e7f3ff;">متوسط ف1 (/${maxValue})</th>` : `<th style="background-color: #e7f3ff;">Moyenne S1 (/${maxValue})</th>`;
     }
     
     // En-têtes pour Semestre 2
     if (unitsSem2 === 1) {
-        headerHTML += `<th>Semestre 2 (/${maxValue})</th>`;
+        headerHTML += isArabicSubject ? `<th>الفصل الثاني (/${maxValue})</th>` : `<th>Semestre 2 (/${maxValue})</th>`;
     } else {
         for (let i = 1; i <= unitsSem2; i++) {
-            headerHTML += `<th>S2-U${i} (/${maxValue})</th>`;
+            headerHTML += isArabicSubject ? `<th>ف2-و${i} (/${maxValue})</th>` : `<th>S2-U${i} (/${maxValue})</th>`;
         }
-        headerHTML += `<th style="background-color: #e7f3ff;">Moyenne S2 (/${maxValue})</th>`;
+        headerHTML += isArabicSubject ? `<th style="background-color: #e7f3ff;">متوسط ف2 (/${maxValue})</th>` : `<th style="background-color: #e7f3ff;">Moyenne S2 (/${maxValue})</th>`;
     }
     
-    headerHTML += `<th>Niveau Final (/${maxValue})</th>`;
-    headerHTML += `<th>Seuil Total (/${isDPClass ? 28 : 32})</th>`;
-    headerHTML += `<th>Note Finale (/${maxValue})</th>`;
+    headerHTML += isArabicSubject ? `<th>المستوى النهائي (/${maxValue})</th>` : `<th>Niveau Final (/${maxValue})</th>`;
+    headerHTML += isArabicSubject ? `<th>المجموع الكلي (/${isDPClass ? 28 : 32})</th>` : `<th>Seuil Total (/${isDPClass ? 28 : 32})</th>`;
+    headerHTML += isArabicSubject ? `<th>الدرجة النهائية (/${maxValue})</th>` : `<th>Note Finale (/${maxValue})</th>`;
     headerHTML += '</tr>';
     
     thead.innerHTML = headerHTML;
@@ -424,8 +429,34 @@ function handleCriteriaChange(inputElement) {
 // Logique de sélection
 function handleSectionChange(value) {
     currentData.sectionSelected = value;
+    
+    // Masquer les boutons de section et afficher seulement le sélecteur de classe
+    document.getElementById('step0').style.display = 'none';
     document.getElementById('step1').style.display = 'block';
+    
+    // Filtrer les classes selon la section
+    populateClassesForSection(value);
+    
     resetOnSectionChange();
+}
+
+// Nouvelle fonction pour peupler les classes selon la section
+function populateClassesForSection(section) {
+    const classSelector = document.getElementById('classSelector');
+    classSelector.innerHTML = '<option value="">-- Sélectionnez une Classe --</option>';
+    
+    const availableClasses = {
+        'garçons': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'DP2'],
+        'filles': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'PEI5', 'DP1', 'DP2']
+    };
+    
+    const classes = availableClasses[section] || [];
+    classes.forEach(className => {
+        const option = document.createElement('option');
+        option.value = className;
+        option.textContent = className;
+        classSelector.appendChild(option);
+    });
 }
 
 function handleClassChange(value) {
@@ -579,6 +610,7 @@ function updateCriteriaTableHeaders() {
     const criteriaLabels = criteriaBySubject[subject] || {};
     const rows = document.querySelectorAll("#criteriaTable tbody tr");
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const isArabicSubject = subject === 'Acquisition de langue (اللغة العربية)';
     
     rows.forEach((row, index) => {
         let key;
@@ -591,7 +623,12 @@ function updateCriteriaTableHeaders() {
         }
         const labelCell = row.cells[0];
         if (labelCell) {
-            labelCell.textContent = `${key}: ${criteriaLabels[key] || 'Critère ' + key}`;
+            // Pour la matière arabe, afficher seulement le critère en arabe
+            if (isArabicSubject) {
+                labelCell.textContent = criteriaLabels[key] || key;
+            } else {
+                labelCell.textContent = `${key}: ${criteriaLabels[key] || 'Critère ' + key}`;
+            }
         }
     });
 }
