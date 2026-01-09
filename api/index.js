@@ -261,6 +261,7 @@ async function fetchImage(url) {
         }
         
         const originalBuffer = Buffer.from(await response.arrayBuffer());
+        console.log(`✅ Image téléchargée (${originalBuffer.length} bytes) pour URL: ${url.substring(0, 50)}...`);
         console.log(`✅ Image fetched: ${originalBuffer.length} bytes`);
         
         // Vérifier que c'est bien une image (magic bytes)
@@ -857,6 +858,7 @@ app.post('/api/generateClassZip', async (req, res) => {
         const classStudents = await Promise.all(
             distinctStudents.map(async (studentName) => {
                 const studentInfo = await studentsCollection.findOne({ studentSelected: studentName });
+                console.log(`🔍 Infos élève récupérées pour ${studentName}:`, studentInfo ? 'OUI' : 'NON', 'Photo:', studentInfo?.studentPhotoUrl ? 'OUI' : 'NON');
                 return {
                     studentSelected: studentName,
                     studentBirthdate: studentInfo?.studentBirthdate,
