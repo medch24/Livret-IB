@@ -262,6 +262,19 @@ async function fetchImage(url) {
         
         const originalBuffer = Buffer.from(await response.arrayBuffer());
         console.log(`✅ Image téléchargée (${originalBuffer.length} bytes) pour URL: ${url.substring(0, 50)}...`);
+        
+        try {
+            // Utiliser Jimp pour garantir un format PNG compatible Word et une taille correcte
+            const image = await Jimp.read(originalBuffer);
+            // Redimensionner à 150x150 (plus grand pour meilleure qualité) tout en gardant le ratio
+            image.contain(150, 150);
+            const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+            console.log(`✅ Image traitée avec Jimp: ${processedBuffer.length} bytes`);
+            return processedBuffer;
+        } catch (jimpErr) {
+            console.error('❌ Erreur Jimp:', jimpErr.message);
+            return originalBuffer;
+        }
         console.log(`✅ Image fetched: ${originalBuffer.length} bytes`);
         
         // Vérifier que c'est bien une image (magic bytes)
@@ -461,8 +474,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                 return TRANSPARENT_PIXEL;
             },
             getSize: function(img, tagValue, tagName) {
-                // Taille fixe 80x80px
-                return [80, 80];
+                // Taille dans le document Word (en pixels)
+                return [100, 100];
             }
         };
 
