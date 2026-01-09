@@ -873,7 +873,8 @@ app.post('/api/generateClassZip', async (req, res) => {
         });
         
         // Headers pour le téléchargement ZIP
-        const zipFileName = `Livrets-${classSelected}-${sectionSelected}.zip`;
+        const safeSection = sectionSelected.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ç/g, 'c');
+        const zipFileName = `Livrets-${classSelected}-${safeSection}.zip`;
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${zipFileName}"`);
         
