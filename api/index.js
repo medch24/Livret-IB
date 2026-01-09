@@ -16,7 +16,7 @@ const DocxTemplater = require("docxtemplater");
 const ImageModule = require('docxtemplater-image-module-free');
 const fetch = require('node-fetch');
 const archiver = require('archiver');
-const sharp = require('sharp');
+const Jimp = require('jimp');
 // const XLSX = require('xlsx'); // Temporairement désactivé pour éviter les vulnérabilités
 
 // --- Configuration ---
@@ -269,15 +269,17 @@ async function fetchImage(url) {
             return null;
         }
         
-        // SOLUTION DÉFINITIVE: Redimensionner et compresser l'image avec Sharp
-        // Taille fixe: 80x80 pixels en JPEG qualité 80%
-        const resizedBuffer = await sharp(originalBuffer)
-            .resize(80, 80, {
-                fit: 'cover',
-                position: 'center'
-            })
-            .jpeg({ quality: 80 })
-            .toBuffer();
+        // SOLUTION VERCEL-COMPATIBLE: Utiliser Jimp (Pure JS, pas de binaires système)
+        // Redimensionner à 80x80 pixels avec qualité JPEG
+        const image = await Jimp.read(originalBuffer);
+        
+        // Redimensionner en gardant les proportions et en centrant
+        image
+            .cover(80, 80)  // Recadrage intelligent 80x80
+            .quality(80);   // Qualité JPEG 80%
+        
+        // Convertir en buffer JPEG
+        const resizedBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
         
         console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (80x80px)`);
         
@@ -285,10 +287,8 @@ async function fetchImage(url) {
         const MAX_IMAGE_SIZE = 50 * 1024; // 50KB max après compression
         if (resizedBuffer.length > MAX_IMAGE_SIZE) {
             // Réduire encore la qualité si trop grande
-            const finalBuffer = await sharp(originalBuffer)
-                .resize(80, 80, { fit: 'cover', position: 'center' })
-                .jpeg({ quality: 60 })
-                .toBuffer();
+            image.quality(60);
+            const finalBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
             
             console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes`);
             return finalBuffer;
