@@ -487,7 +487,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         // Gestion de l'image : Si valide on la passe, sinon null (le module gérera le fallback)
         if (imageBuffer && imageBuffer.length > 0) {
             dataToRender.image = imageBuffer;
-            console.log(`✅ Image included in data (${imageBuffer.length} bytes)`);
+            dataToRender.studentPhoto = imageBuffer;
+            console.log(`✅ Image included in data as 'image' and 'studentPhoto' (${imageBuffer.length} bytes)`);
         } else {
             dataToRender.image = null; // Déclenchera le pixel transparent
             console.log(`⚠️ No image provided, placeholder will be used`);
