@@ -81,7 +81,7 @@ let isDbConnected = false;
 
 // --- Structure Données (Référence pour les critères) ---
 const criteriaBySubject = {
-    // Matières PEI (PEI1-PEI5) - CRITÈRES SPÉCIFIQUES
+    // Matières PEI (PEI1-PEI5) et DP (DP1-DP2) - CRITÈRES IDENTIQUES A-D
     "Mathématiques":{A:"Connaissances et compréhension",B:"Recherche de modèles",C:"Communication",D:"Application des mathématiques"},
     "Individus et sociétés":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
     "Langue et littérature":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
@@ -91,16 +91,6 @@ const criteriaBySubject = {
     "Éducation physique et sportive":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
     "Acquisition de langue (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
     "Acquisition de langue (اللغة العربية)":{A:"الاستماع",B:"القراءة",C:"التحدث",D:"الكتابة"},
-    // Matières DP
-    "Langue et Littérature (Français NM)":{AO1:"Connaissances et compréhension des œuvres littéraires et des textes non-littéraires",AO2:"Application des compétences d'analyse et d'interprétation",AO3:"Communication claire, précise et efficace",AO4:"Maîtrise de l'usage de la langue"},
-    "Langue Anglaise (NM)":{AO1:"Communication d'idées (interaction orale et écrite)",AO2:"Compréhension des messages (lecture, écoute)",AO3:"Maîtrise de la langue (précision, vocabulaire, prononciation/orthographe)",AO4:"Développement de la sensibilité interculturelle"},
-    "Géographie (NM)":{AO1:"Connaissances des concepts, des théories et des processus géographiques",AO2:"Application et analyse des données et des techniques géographiques",AO3:"Synthèse, évaluation et argumentation",AO4:"Sélection, organisation et présentation de l'information"},
-    "Mathématiques AA (NS)":{AO1:"Connaissances et compréhension des concepts, principes et méthodes mathématiques",AO2:"Modélisation et résolution de problèmes dans des contextes variés",AO3:"Communication des raisonnements mathématiques",AO4:"Utilisation efficace de la technologie"},
-    "Biologie (NS)":{AO1:"Connaissances et compréhension des faits, concepts et méthodologies",AO2:"Application des connaissances et des techniques scientifiques",AO3:"Formulation, analyse et évaluation des hypothèses, méthodes et conclusions",AO4:"Maîtrise des techniques expérimentales"},
-    "Physique (NS)":{AO1:"Connaissances et compréhension des faits, concepts et méthodologies",AO2:"Application des connaissances et des techniques scientifiques",AO3:"Formulation, analyse et évaluation des hypothèses, méthodes et conclusions",AO4:"Maîtrise des techniques expérimentales"},
-    "Théorie de la Connaissance (TdC)":{AO1:"Réflexion sur les Questions de Connaissance",AO2:"Exploration des Cadres de Connaissance",AO3:"Lien entre les concepts de TdC et des situations réelles"},
-    "Mémoire (EE)":{AO1:"Développement d'une Question de Recherche",AO2:"Capacité à mener une recherche indépendante et pertinente",AO3:"Développement d'une argumentation structurée et critique",AO4:"Réflexion sur le processus d'apprentissage"},
-    "CAS":{AO1:"Atteinte des 7 Résultats d'Apprentissage du CAS",AO2:"Réflexion régulière, honnête et approfondie sur les activités",AO3:"Planification et mise en œuvre du Projet CAS"},
     // Anciennes matières pour rétrocompatibilité
     "Acquisition de langues (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
     "Langue et littérature (Français)":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
@@ -312,10 +302,9 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName) {
     const templateData = {};
     let totalLevel = 0;
     
-    // Déterminer si c'est une matière DP (qui utilise AO1-AO4)
-    const isDPSubject = Object.keys(criteriaNames).some(key => key.startsWith('AO'));
-    const criteriaKeys = isDPSubject ? ['AO1', 'AO2', 'AO3', 'AO4'] : ['A', 'B', 'C', 'D'];
-    const maxNote = isDPSubject ? 7 : 8;
+    // Utiliser A-D pour toutes les classes (PEI et DP)
+    const criteriaKeys = ['A', 'B', 'C', 'D'];
+    const maxNote = (className === 'DP1' || className === 'DP2') ? 7 : 8;
     
     criteriaKeys.forEach(key => {
         const critData = criteriaValues?.[key] || {};
@@ -728,9 +717,15 @@ app.post('/api/generateSingleWord', async (req, res) => {
         );
         
         // Générer nom de fichier pour le téléchargement
-        // Format: Livret-[Nom Prénom]-Semestre.docx
+        // Format: Livret-Nom-Prenom-Semestre.docx (sans caractères spéciaux)
         const fullName = getFullStudentName(studentSelected); // Utiliser nom complet
-        const safeStudentName = fullName.replace(/[\s/\\?%*:|"<>.]/g, '_');
+        // Remplacer espaces par tirets, supprimer caractères spéciaux
+        const safeStudentName = fullName
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Supprimer accents
+            .replace(/[\s]+/g, '-') // Espaces -> tirets
+            .replace(/[^a-zA-Z0-9\-]/g, '') // Garder seulement lettres, chiffres, tirets
+            .replace(/\-+/g, '-') // Éviter tirets multiples
+            .replace(/^\-|\-$/g, ''); // Supprimer tirets début/fin
         const docFileName = `Livret-${safeStudentName}-Semestre.docx`;
         
         // VERCEL COMPATIBLE: Stream direct sans écriture de fichier
