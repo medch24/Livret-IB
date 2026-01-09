@@ -245,6 +245,14 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 }
 
 async function fetchImage(url) {
+    // Conversion des liens Google Drive en liens directs
+    if (url.includes('googleusercontent.com/d/') || url.includes('drive.google.com/uc?id=')) {
+        const fileId = url.split('/d/')[1] || url.split('id=')[1];
+        if (fileId) {
+            url = `https://drive.google.com/uc?export=download&id=${fileId.split('&')[0].split('/')[0]}`;
+            console.log(`🔄 Google Drive link converted to direct: ${url}`);
+        }
+    }
     try {
         console.log(`📷 Fetching image: ${url.substring(0, 50)}...`);
         
