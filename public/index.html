@@ -95,7 +95,8 @@
         </div>
 
         <div id="contributionEntrySections" style="display: none;">
-            <section id="communicationTable">
+            <!-- Section Française -->
+            <section id="communicationTable" class="french-section">
                 <h2>Critères Initiaux (Compétences Approche de l'Apprentissage)</h2>
                 <p style="font-size: 0.9em; color: #6c757d;">
                     <span style="font-weight: bold;">E</span>: Excellent | 
@@ -127,7 +128,41 @@
                 </table>
             </section>
             
-            <section id="criteriaTable">
+            <!-- Section Arabe -->
+            <section id="communicationTableArabic" class="arabic-section" style="display: none; direction: rtl; text-align: right;">
+                <h2>المعايير الأولية (كفاءات مهارات التعلم)</h2>
+                <p style="font-size: 0.9em; color: #6c757d;">
+                    <span style="font-weight: bold;">م</span>: ممتاز | 
+                    <span style="font-weight: bold;">م+</span>: مكتسب | 
+                    <span style="font-weight: bold;">ج</span>: مكتسب جزئياً | 
+                    <span style="font-weight: bold;">غ</span>: غير كافٍ
+                </p>
+                <table dir="rtl">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>التواصل</th>
+                            <th>التعاون</th>
+                            <th>الإدارة الذاتية</th>
+                            <th>البحث</th>
+                            <th>التفكير</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>التقييم</th>
+                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>م</option><option>م+</option><option>ج</option><option>غ</option></select></td>
+                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>م</option><option>م+</option><option>ج</option><option>غ</option></select></td>
+                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>م</option><option>م+</option><option>ج</option><option>غ</option></select></td>
+                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>م</option><option>م+</option><option>ج</option><option>غ</option></select></td>
+                            <td><select onchange="handleCommunicationChange()"><option value=""></option><option>م</option><option>م+</option><option>ج</option><option>غ</option></select></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+            
+            <!-- Section Française -->
+            <section id="criteriaTable" class="french-section">
                 <h2>Critères d'Évaluation (Matière)</h2>
                 <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
                     <label style="margin-right: 15px;">
@@ -197,6 +232,80 @@
                 <input id="teacherName" placeholder="Entrez votre nom" onchange="handleTeacherNameChange(this.value)">
                 <div style="text-align: right; margin-top: 20px;">
                     <button id="submitButton" onclick="submitForm()">Soumettre / Mettre à jour</button>
+                </div>
+            </section>
+            
+            <!-- Section Arabe -->
+            <section id="criteriaTableArabic" class="arabic-section" style="display: none; direction: rtl; text-align: right;">
+                <h2>معايير التقييم (المادة)</h2>
+                <div style="margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; direction: rtl;">
+                    <label style="margin-left: 15px;">
+                        <strong>عدد الوحدات - الفصل الأول:</strong>
+                        <select id="unitsSem1SelectorArabic" onchange="handleUnitsChange()" style="margin-right: 5px; padding: 5px;">
+                            <option value="1">وحدة واحدة (درجة مباشرة)</option>
+                            <option value="2">وحدتان</option>
+                            <option value="3">3 وحدات</option>
+                            <option value="4">4 وحدات</option>
+                            <option value="5">5 وحدات</option>
+                        </select>
+                    </label>
+                    <label>
+                        <strong>عدد الوحدات - الفصل الثاني:</strong>
+                        <select id="unitsSem2SelectorArabic" onchange="handleUnitsChange()" style="margin-right: 5px; padding: 5px;">
+                            <option value="1">وحدة واحدة (درجة مباشرة)</option>
+                            <option value="2">وحدتان</option>
+                            <option value="3">3 وحدات</option>
+                            <option value="4">4 وحدات</option>
+                            <option value="5">5 وحدات</option>
+                        </select>
+                    </label>
+                </div>
+                <table id="criteriaTableElementArabic" dir="rtl">
+                    <thead id="criteriaTableHeadArabic">
+                        <tr>
+                            <th>المعايير</th>
+                            <th>الفصل الأول (/8)</th>
+                            <th>الفصل الثاني (/8)</th>
+                            <th>المستوى النهائي (/8)</th>
+                            <th>المجموع الكلي (/32)</th>
+                            <th>الدرجة النهائية (/8)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="criteriaTableBodyArabic">
+                        <tr data-criteria="A">
+                            <td>الاستماع</td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
+                            <td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
+                            <td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>
+                        </tr>
+                        <tr data-criteria="B">
+                            <td>القراءة</td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
+                        </tr>
+                        <tr data-criteria="C">
+                            <td>التحدث</td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
+                        </tr>
+                        <tr data-criteria="D">
+                            <td>الكتابة</td>
+                            <td class="sem1-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td class="sem2-cell"><input type="number" min="0" max="8" oninput="validateInput(this)"></td>
+                            <td><input type="number" readonly tabindex="-1" class="final-level-input"></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h3>التعليقات</h3>
+                <textarea id="teacherCommentArabic" rows="4" placeholder="اكتب تعليقاتك هنا..." onchange="handleCommentChange(this.value)"></textarea>
+                <h3>اسم المعلم</h3>
+                <input id="teacherNameArabic" placeholder="أدخل اسمك" onchange="handleTeacherNameChange(this.value)">
+                <div style="text-align: left; margin-top: 20px;">
+                    <button id="submitButtonArabic" onclick="submitForm()">إرسال / تحديث</button>
                 </div>
             </section>
         </div>

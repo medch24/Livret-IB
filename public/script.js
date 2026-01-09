@@ -204,6 +204,11 @@ async function downloadWordDocument(data) {
 function handleTeacherNameChange(value) {
     currentData.teacherName = value.trim();
     localStorage.setItem('teacherName', currentData.teacherName);
+    
+    // Synchroniser avec le champ approprié
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const otherField = isArabicSubject ? document.getElementById('teacherName') : document.getElementById('teacherNameArabic');
+    if (otherField) otherField.value = value.trim();
 }
 
 function handleStudentBirthdateChange(value) {
@@ -212,22 +217,43 @@ function handleStudentBirthdateChange(value) {
 
 function handleCommentChange(value) {
     currentData.teacherComment = value;
+    
+    // Synchroniser avec le champ approprié
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const otherField = isArabicSubject ? document.getElementById('teacherComment') : document.getElementById('teacherCommentArabic');
+    if (otherField) otherField.value = value;
 }
 
 function handleCommunicationChange() {
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const selector = isArabicSubject ? "#communicationTableArabic tbody select" : "#communicationTable tbody select";
+    
     currentData.communicationEvaluation = Array.from(
-        document.querySelectorAll("#communicationTable tbody select")
+        document.querySelectorAll(selector)
     ).map(sel => sel.value);
 }
 
 function handleUnitsChange() {
-    const unitsSem1 = parseInt(document.getElementById('unitsSem1Selector').value);
-    const unitsSem2 = parseInt(document.getElementById('unitsSem2Selector').value);
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    
+    let unitsSem1, unitsSem2;
+    
+    if (isArabicSubject) {
+        unitsSem1 = parseInt(document.getElementById('unitsSem1SelectorArabic').value);
+        unitsSem2 = parseInt(document.getElementById('unitsSem2SelectorArabic').value);
+    } else {
+        unitsSem1 = parseInt(document.getElementById('unitsSem1Selector').value);
+        unitsSem2 = parseInt(document.getElementById('unitsSem2Selector').value);
+    }
     
     currentData.unitsSem1 = unitsSem1;
     currentData.unitsSem2 = unitsSem2;
     
-    rebuildCriteriaTable();
+    if (isArabicSubject) {
+        rebuildCriteriaTableArabic();
+    } else {
+        rebuildCriteriaTable();
+    }
 }
 
 function rebuildCriteriaTable() {
@@ -478,12 +504,32 @@ function handleSubjectChange(value) {
     currentData.subjectSelected = value;
     resetOnSubjectChange();
     if (value) {
+        const isArabicSubject = value === 'Acquisition de langue (اللغة العربية)';
+        
+        // Afficher/masquer les sections appropriées
+        const frenchSections = document.querySelectorAll('.french-section');
+        const arabicSections = document.querySelectorAll('.arabic-section');
+        
+        frenchSections.forEach(section => {
+            section.style.display = isArabicSubject ? 'none' : 'block';
+        });
+        
+        arabicSections.forEach(section => {
+            section.style.display = isArabicSubject ? 'block' : 'none';
+        });
+        
         contributionEntrySections.style.display = "block";
         dataContainer.style.display = "none";
         fetchData();
-        updateCriteriaTableDynamically();
-        updateCriteriaTableHeaders();
-        rebuildCriteriaTable();
+        
+        if (!isArabicSubject) {
+            updateCriteriaTableDynamically();
+            updateCriteriaTableHeaders();
+            rebuildCriteriaTable();
+        } else {
+            updateCriteriaTableDynamicallyArabic();
+            rebuildCriteriaTableArabic();
+        }
     }
 }
 
@@ -509,6 +555,121 @@ function updateCriteriaTableDynamically() {
         }
     });
 }
+
+// Fonction pour mettre à jour le tableau arabe dynamiquement
+function updateCriteriaTableDynamicallyArabic() {
+    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxValue = isDPClass ? 7 : 8;
+    const maxThreshold = isDPClass ? 28 : 32;
+    
+    // Mettre à jour les en-têtes du tableau arabe
+    const headers = document.querySelectorAll("#criteriaTableArabic thead th");
+    if (headers.length >= 5) {
+        headers[1].textContent = `الفصل الأول (/${maxValue})`;
+        headers[2].textContent = `الفصل الثاني (/${maxValue})`;
+        headers[3].textContent = `المستوى النهائي (/${maxValue})`;
+        headers[4].textContent = `المجموع الكلي (/${maxThreshold})`;
+        headers[5].textContent = `الدرجة النهائية (/${maxValue})`;
+    }
+    
+    // Mettre à jour les attributs max des inputs arabes
+    document.querySelectorAll("#criteriaTableArabic tbody input[type='number']").forEach(input => {
+        if (!input.readOnly) {
+            input.max = maxValue;
+        }
+    });
+}
+
+// Fonction pour reconstruire le tableau des critères en arabe
+function rebuildCriteriaTableArabic() {
+    const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
+    const maxValue = isDPClass ? 7 : 8;
+    const maxThreshold = isDPClass ? 28 : 32;
+    const unitsSem1 = parseInt(currentData.unitsSem1) || 1;
+    const unitsSem2 = parseInt(currentData.unitsSem2) || 1;
+    const criteriaKeys = isDPClass ? ['AO1', 'AO2', 'AO3', 'AO4'] : ['A', 'B', 'C', 'D'];
+    
+    // Noms des critères en arabe
+    const criteriaNames = {
+        'A': 'الاستماع',
+        'B': 'القراءة',
+        'C': 'التحدث',
+        'D': 'الكتابة'
+    };
+    
+    const thead = document.getElementById('criteriaTableHeadArabic');
+    const tbody = document.getElementById('criteriaTableBodyArabic');
+    
+    // Construire l'en-tête
+    let headerHTML = '<tr><th>المعايير</th>';
+    
+    // Semestre 1
+    if (unitsSem1 > 1) {
+        for (let i = 1; i <= unitsSem1; i++) {
+            headerHTML += `<th>الوحدة ${i} - ف1 (/${maxValue})</th>`;
+        }
+        headerHTML += `<th>متوسط ف1 (/${maxValue})</th>`;
+    } else {
+        headerHTML += `<th>الفصل الأول (/${maxValue})</th>`;
+    }
+    
+    // Semestre 2
+    if (unitsSem2 > 1) {
+        for (let i = 1; i <= unitsSem2; i++) {
+            headerHTML += `<th>الوحدة ${i} - ف2 (/${maxValue})</th>`;
+        }
+        headerHTML += `<th>متوسط ف2 (/${maxValue})</th>`;
+    } else {
+        headerHTML += `<th>الفصل الثاني (/${maxValue})</th>`;
+    }
+    
+    headerHTML += `<th>المستوى النهائي (/${maxValue})</th>`;
+    headerHTML += `<th>المجموع الكلي (/${maxThreshold})</th>`;
+    headerHTML += `<th>الدرجة النهائية (/${maxValue})</th>`;
+    headerHTML += '</tr>';
+    
+    thead.innerHTML = headerHTML;
+    
+    // Construire le corps du tableau
+    let bodyHTML = '';
+    criteriaKeys.forEach((key, index) => {
+        const criterionName = criteriaNames[key] || key;
+        bodyHTML += `<tr data-criteria="${key}">`;
+        bodyHTML += `<td>${criterionName}</td>`;
+        
+        // Semestre 1
+        if (unitsSem1 > 1) {
+            for (let i = 1; i <= unitsSem1; i++) {
+                bodyHTML += `<td class="sem1-unit"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', ${i})"></td>`;
+            }
+            bodyHTML += `<td><input type="number" readonly tabindex="-1" class="sem1-avg-input"></td>`;
+        } else {
+            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', 1)"></td>`;
+        }
+        
+        // Semestre 2
+        if (unitsSem2 > 1) {
+            for (let i = 1; i <= unitsSem2; i++) {
+                bodyHTML += `<td class="sem2-unit"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', ${i})"></td>`;
+            }
+            bodyHTML += `<td><input type="number" readonly tabindex="-1" class="sem2-avg-input"></td>`;
+        } else {
+            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', 1)"></td>`;
+        }
+        
+        bodyHTML += `<td><input type="number" readonly tabindex="-1" class="final-level-input"></td>`;
+        
+        if (index === 0) {
+            bodyHTML += `<td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
+            bodyHTML += `<td rowspan="4"><input id="finalNoteArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
+        }
+        
+        bodyHTML += '</tr>';
+    });
+    
+    tbody.innerHTML = bodyHTML;
+}
+
 
 // Affichage des informations élève
 async function showStudentInfo() {
@@ -610,7 +771,6 @@ function updateCriteriaTableHeaders() {
     const criteriaLabels = criteriaBySubject[subject] || {};
     const rows = document.querySelectorAll("#criteriaTable tbody tr");
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
-    const isArabicSubject = subject === 'Acquisition de langue (اللغة العربية)';
     
     rows.forEach((row, index) => {
         let key;
@@ -623,14 +783,217 @@ function updateCriteriaTableHeaders() {
         }
         const labelCell = row.cells[0];
         if (labelCell) {
-            // Pour la matière arabe, afficher seulement le critère en arabe
-            if (isArabicSubject) {
-                labelCell.textContent = criteriaLabels[key] || key;
-            } else {
-                labelCell.textContent = `${key}: ${criteriaLabels[key] || 'Critère ' + key}`;
-            }
+            // Afficher le critère avec son nom: "A: Connaissances et compréhension"
+            const criterionName = criteriaLabels[key] || 'Critère ' + key;
+            labelCell.textContent = key + ': ' + criterionName;
         }
     });
+}
+
+// Nouvelle fonction pour mettre à jour les labels en arabe
+function updateArabicLabels() {
+    // Titre de la section Critères Initiaux
+    const commHeader = document.querySelector('#communicationTable h2');
+    if (commHeader) {
+        commHeader.textContent = 'المعايير الأولية (مهارات منهج التعلم)';
+    }
+    
+    // Description E, A, PA, I
+    const commDesc = document.querySelector('#communicationTable p');
+    if (commDesc) {
+        commDesc.innerHTML = `
+            <span style="font-weight: bold;">م</span>: ممتاز | 
+            <span style="font-weight: bold;">م.ج</span>: مكتسب جيداً | 
+            <span style="font-weight: bold;">م.ج</span>: مكتسب جزئياً | 
+            <span style="font-weight: bold;">غ.ك</span>: غير كافٍ
+        `;
+    }
+    
+    // En-têtes du tableau Communication
+    const commTableHeaders = document.querySelectorAll('#communicationTable thead th');
+    if (commTableHeaders.length >= 6) {
+        commTableHeaders[1].textContent = 'التواصل';
+        commTableHeaders[2].textContent = 'التعاون';
+        commTableHeaders[3].textContent = 'الإدارة الذاتية';
+        commTableHeaders[4].textContent = 'البحث';
+        commTableHeaders[5].textContent = 'التأمل';
+    }
+    
+    // Ligne Évaluation
+    const commTableBody = document.querySelector('#communicationTable tbody th');
+    if (commTableBody) {
+        commTableBody.textContent = 'التقييم';
+    }
+    
+    // Titre Critères d'Évaluation
+    const criteriaHeader = document.querySelector('#criteriaTable h2');
+    if (criteriaHeader) {
+        criteriaHeader.textContent = 'معايير التقييم (المادة)';
+    }
+    
+    // Labels des sélecteurs d'unités
+    const unitsSem1Label = document.querySelector('#criteriaTable label:first-child strong');
+    if (unitsSem1Label) {
+        unitsSem1Label.textContent = 'عدد الوحدات - الفصل الأول:';
+    }
+    
+    const unitsSem2Label = document.querySelector('#criteriaTable label:last-child strong');
+    if (unitsSem2Label) {
+        unitsSem2Label.textContent = 'عدد الوحدات - الفصل الثاني:';
+    }
+    
+    // Options des sélecteurs
+    updateSelectOptionsArabic('unitsSem1Selector');
+    updateSelectOptionsArabic('unitsSem2Selector');
+    
+    // Titre Commentaires
+    const commentsHeader = document.querySelector('#criteriaTable h3:nth-of-type(1)');
+    if (commentsHeader) {
+        commentsHeader.textContent = 'التعليقات';
+    }
+    
+    // Placeholder commentaires
+    const commentsTextarea = document.getElementById('teacherComment');
+    if (commentsTextarea) {
+        commentsTextarea.placeholder = 'اكتب تعليقاتك هنا...';
+    }
+    
+    // Titre Nom de l'enseignant
+    const teacherHeader = document.querySelector('#criteriaTable h3:nth-of-type(2)');
+    if (teacherHeader) {
+        teacherHeader.textContent = 'اسم المعلم';
+    }
+    
+    // Placeholder nom enseignant
+    const teacherInput = document.getElementById('teacherName');
+    if (teacherInput) {
+        teacherInput.placeholder = 'أدخل اسمك';
+    }
+    
+    // Bouton Soumettre
+    const submitBtn = document.getElementById('submitButton');
+    if (submitBtn) {
+        submitBtn.textContent = 'إرسال / تحديث';
+    }
+}
+
+// Fonction pour réinitialiser les labels en français
+function resetFrenchLabels() {
+    // Titre de la section Critères Initiaux
+    const commHeader = document.querySelector('#communicationTable h2');
+    if (commHeader) {
+        commHeader.textContent = 'Critères Initiaux (Compétences Approche de l\'Apprentissage)';
+    }
+    
+    // Description E, A, PA, I
+    const commDesc = document.querySelector('#communicationTable p');
+    if (commDesc) {
+        commDesc.innerHTML = `
+            <span style="font-weight: bold;">E</span>: Excellent | 
+            <span style="font-weight: bold;">A</span>: Acquis | 
+            <span style="font-weight: bold;">PA</span>: Partiellement Acquis | 
+            <span style="font-weight: bold;">I</span>: Insuffisant
+        `;
+    }
+    
+    // En-têtes du tableau Communication
+    const commTableHeaders = document.querySelectorAll('#communicationTable thead th');
+    if (commTableHeaders.length >= 6) {
+        commTableHeaders[1].textContent = 'Communication';
+        commTableHeaders[2].textContent = 'Collaboration';
+        commTableHeaders[3].textContent = 'Autogestion';
+        commTableHeaders[4].textContent = 'Recherche';
+        commTableHeaders[5].textContent = 'Réflexion';
+    }
+    
+    // Ligne Évaluation
+    const commTableBody = document.querySelector('#communicationTable tbody th');
+    if (commTableBody) {
+        commTableBody.textContent = 'Évaluation';
+    }
+    
+    // Titre Critères d'Évaluation
+    const criteriaHeader = document.querySelector('#criteriaTable h2');
+    if (criteriaHeader) {
+        criteriaHeader.textContent = 'Critères d\'Évaluation (Matière)';
+    }
+    
+    // Labels des sélecteurs d'unités
+    const unitsSem1Label = document.querySelector('#criteriaTable label:first-child strong');
+    if (unitsSem1Label) {
+        unitsSem1Label.textContent = 'Nombre d\'unités - Semestre 1:';
+    }
+    
+    const unitsSem2Label = document.querySelector('#criteriaTable label:last-child strong');
+    if (unitsSem2Label) {
+        unitsSem2Label.textContent = 'Nombre d\'unités - Semestre 2:';
+    }
+    
+    // Options des sélecteurs
+    updateSelectOptionsFrench('unitsSem1Selector');
+    updateSelectOptionsFrench('unitsSem2Selector');
+    
+    // Titre Commentaires
+    const commentsHeader = document.querySelector('#criteriaTable h3:nth-of-type(1)');
+    if (commentsHeader) {
+        commentsHeader.textContent = 'Commentaires';
+    }
+    
+    // Placeholder commentaires
+    const commentsTextarea = document.getElementById('teacherComment');
+    if (commentsTextarea) {
+        commentsTextarea.placeholder = 'Écrivez vos commentaires ici...';
+    }
+    
+    // Titre Nom de l'enseignant
+    const teacherHeader = document.querySelector('#criteriaTable h3:nth-of-type(2)');
+    if (teacherHeader) {
+        teacherHeader.textContent = 'Nom de l\'enseignant';
+    }
+    
+    // Placeholder nom enseignant
+    const teacherInput = document.getElementById('teacherName');
+    if (teacherInput) {
+        teacherInput.placeholder = 'Entrez votre nom';
+    }
+    
+    // Bouton Soumettre
+    const submitBtn = document.getElementById('submitButton');
+    if (submitBtn) {
+        submitBtn.textContent = 'Soumettre / Mettre à jour';
+    }
+}
+
+// Fonction pour mettre à jour les options en arabe
+function updateSelectOptionsArabic(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = `
+        <option value="1">وحدة واحدة (درجة مباشرة)</option>
+        <option value="2">وحدتان</option>
+        <option value="3">3 وحدات</option>
+        <option value="4">4 وحدات</option>
+        <option value="5">5 وحدات</option>
+    `;
+    select.value = currentValue;
+}
+
+// Fonction pour mettre à jour les options en français
+function updateSelectOptionsFrench(selectId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    
+    const currentValue = select.value;
+    select.innerHTML = `
+        <option value="1">1 unité (note directe)</option>
+        <option value="2">2 unités</option>
+        <option value="3">3 unités</option>
+        <option value="4">4 unités</option>
+        <option value="5">5 unités</option>
+    `;
+    select.value = currentValue;
 }
 
 // Validation et calculs
@@ -655,7 +1018,10 @@ function calculateRow(rowElement) {
 }
 
 function calculateTotals() {
-    const rows = document.querySelectorAll("#criteriaTableBody tr");
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    const tbody = isArabicSubject ? document.getElementById("criteriaTableBodyArabic") : document.getElementById("criteriaTableBody");
+    const rows = tbody ? tbody.querySelectorAll("tr") : [];
+    
     const isDPClass = currentData.classSelected === 'DP1' || currentData.classSelected === 'DP2';
     const maxNote = isDPClass ? 7 : 8;
     const maxThreshold = isDPClass ? 28 : 32; // 4 critères * 7 ou 8
@@ -669,7 +1035,8 @@ function calculateTotals() {
         }
     });
     
-    const thresholdInput = document.getElementById("threshold");
+    const thresholdId = isArabicSubject ? "thresholdArabic" : "threshold";
+    const thresholdInput = document.getElementById(thresholdId);
     if (thresholdInput) {
         thresholdInput.value = totalLevel;
     }
@@ -681,7 +1048,8 @@ function calculateTotals() {
         if (finalNote > maxNote) finalNote = maxNote;
     }
     
-    const finalNoteInput = document.getElementById("finalNote");
+    const finalNoteId = isArabicSubject ? "finalNoteArabic" : "finalNote";
+    const finalNoteInput = document.getElementById(finalNoteId);
     if (finalNoteInput) {
         finalNoteInput.value = finalNote;
     }
@@ -719,26 +1087,39 @@ async function fetchData() {
 }
 
 function fillFormWithData(data) {
+    const isArabicSubject = currentData.subjectSelected === 'Acquisition de langue (اللغة العربية)';
+    
+    // Remplir le nom de l'enseignant
     teacherNameInput.value = data.teacherName || currentData.teacherName || '';
     currentData.teacherName = teacherNameInput.value;
     localStorage.setItem('teacherName', currentData.teacherName);
     
-    document.getElementById('teacherComment').value = data.teacherComment || '';
+    // Synchroniser avec le champ arabe si nécessaire
+    const teacherNameArabic = document.getElementById('teacherNameArabic');
+    if (teacherNameArabic) teacherNameArabic.value = currentData.teacherName;
+    
+    // Remplir le commentaire
+    const commentField = isArabicSubject ? document.getElementById('teacherCommentArabic') : document.getElementById('teacherComment');
+    if (commentField) commentField.value = data.teacherComment || '';
     currentData.teacherComment = data.teacherComment;
     
+    // Remplir les évaluations de communication
     currentData.communicationEvaluation = data.communicationEvaluation || ['', '', '', '', ''];
-    document.querySelectorAll("#communicationTable tbody select").forEach((s, i) => {
+    const commSelector = isArabicSubject ? "#communicationTableArabic tbody select" : "#communicationTable tbody select";
+    document.querySelectorAll(commSelector).forEach((s, i) => {
         s.value = currentData.communicationEvaluation[i] || '';
     });
     
     // Restaurer les unités sélectionnées
     if (data.unitsSem1) {
         currentData.unitsSem1 = data.unitsSem1;
-        document.getElementById('unitsSem1Selector').value = data.unitsSem1;
+        const unitsSem1Field = isArabicSubject ? document.getElementById('unitsSem1SelectorArabic') : document.getElementById('unitsSem1Selector');
+        if (unitsSem1Field) unitsSem1Field.value = data.unitsSem1;
     }
     if (data.unitsSem2) {
         currentData.unitsSem2 = data.unitsSem2;
-        document.getElementById('unitsSem2Selector').value = data.unitsSem2;
+        const unitsSem2Field = isArabicSubject ? document.getElementById('unitsSem2SelectorArabic') : document.getElementById('unitsSem2Selector');
+        if (unitsSem2Field) unitsSem2Field.value = data.unitsSem2;
     }
     
     // Supporte PEI (A-D) et DP (AO1-AO4)
@@ -760,7 +1141,11 @@ function fillFormWithData(data) {
     });
     
     // Reconstruire le tableau avec les bonnes colonnes
-    rebuildCriteriaTable();
+    if (isArabicSubject) {
+        rebuildCriteriaTableArabic();
+    } else {
+        rebuildCriteriaTable();
+    }
     
     currentData.studentBirthdate = data.studentBirthdate || currentData.studentBirthdate || '';
     studentBirthdateInput.value = currentData.studentBirthdate;
@@ -1217,6 +1602,7 @@ function resetFormData() {
 }
 
 function resetInputTables() {
+    // Réinitialiser les tableaux français
     document.querySelectorAll("#communicationTable tbody select").forEach(s => s.value = '');
     document.querySelectorAll("#criteriaTableBody input").forEach(i => {
         if (!i.readOnly) i.value = '';
@@ -1225,7 +1611,20 @@ function resetInputTables() {
     const finalNoteInput = document.getElementById("finalNote");
     if (thresholdInput) thresholdInput.value = '';
     if (finalNoteInput) finalNoteInput.value = '';
-    document.getElementById('teacherComment').value = '';
+    const teacherComment = document.getElementById('teacherComment');
+    if (teacherComment) teacherComment.value = '';
+    
+    // Réinitialiser les tableaux arabes
+    document.querySelectorAll("#communicationTableArabic tbody select").forEach(s => s.value = '');
+    document.querySelectorAll("#criteriaTableBodyArabic input").forEach(i => {
+        if (!i.readOnly) i.value = '';
+    });
+    const thresholdInputArabic = document.getElementById("thresholdArabic");
+    const finalNoteInputArabic = document.getElementById("finalNoteArabic");
+    if (thresholdInputArabic) thresholdInputArabic.value = '';
+    if (finalNoteInputArabic) finalNoteInputArabic.value = '';
+    const teacherCommentArabic = document.getElementById('teacherCommentArabic');
+    if (teacherCommentArabic) teacherCommentArabic.value = '';
 }
 
 // Fonction utilitaire pour les couleurs

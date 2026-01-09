@@ -20,3 +20,40 @@ body{font-family:'Roboto',sans-serif;margin:0;padding:0;background-color:#f8f9fa
 .student-photo-birthdate-container{order:0}
 
 .student-info>div:not(.student-photo-birthdate-container):not(.student-info-buttons){width:90%;align-items:center;text-align:center}.student-info-buttons{justify-content:center}.contribution-header{flex-direction:column;gap:10px;text-align:center}.contribution-buttons{width:100%;justify-content:center}header h1{font-size:1.6em}h2{font-size:1.4em}}@media (max-width:480px){body{font-size:14px}.section-buttons button{padding:12px 18px;font-size:1em}.contribution-buttons button{font-size:.75em;padding:4px 8px}header h1{font-size:1.4em}h2{font-size:1.2em}button{font-size:.85em;padding:8px 12px}header button{padding:6px 10px;font-size:.8em}.modal-content{padding:20px;min-width:280px}.modal-buttons button{font-size:.85em;padding:8px 12px}table{font-size:.85em}table th,table td{padding:6px}.contribution-content .details-table th,.contribution-content .details-table td{padding:5px}}
+/* Styles pour les sections arabes */
+.arabic-section {
+    direction: rtl;
+    text-align: right;
+}
+
+.arabic-section table {
+    direction: rtl;
+}
+
+.arabic-section th,
+.arabic-section td {
+    text-align: center;
+}
+
+.arabic-section h2,
+.arabic-section h3 {
+    text-align: right;
+}
+
+.arabic-section input,
+.arabic-section textarea,
+.arabic-section select {
+    direction: rtl;
+    text-align: right;
+}
+
+.arabic-section button {
+    direction: rtl;
+}
+
+/* Pour les tableaux en arabe */
+#criteriaTableElementArabic th:first-child,
+#criteriaTableElementArabic td:first-child {
+    font-weight: 500;
+    background-color: #f8f9fa;
+}
