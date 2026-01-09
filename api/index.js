@@ -20,7 +20,6 @@ const fetch = require('node-fetch');
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
 // Logging middleware pour débugger
 app.use((req, res, next) => {
         console.log(`📥 ${req.method} ${req.path} - ${new Date().toISOString()}`);
