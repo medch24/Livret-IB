@@ -75,28 +75,30 @@ const studentData = {
     'Luluwah Alghabashi': {birthdate: '2010-04-29', photo: null}
 };
 
-// Matières par classe
+// Matières par classe - TOUTES LES CLASSES
 const subjectsByClass = {
-    PEI1: ["Acquisition de langues (Anglais)", "Langue et littérature (Français)", "Individus et sociétés", "Sciences", "Mathématiques", "Arts", "Éducation physique et à la santé", "Design"],
-    PEI2: ["Acquisition de langues (Anglais)", "Langue et littérature (Français)", "Individus et sociétés", "Sciences", "Mathématiques", "Arts", "Éducation physique et à la santé", "Design"],
-    PEI3: ["Acquisition de langues (Anglais)", "Langue et littérature (Français)", "Individus et sociétés", "Sciences", "Mathématiques", "Arts", "Éducation physique et à la santé", "Design"],
-    PEI4: ["Acquisition de langues (Anglais)", "Langue et littérature (Français)", "Individus et sociétés", "Sciences", "Mathématiques", "Arts", "Éducation physique et à la santé", "Design"],
-    PEI5: ["Acquisition de langues (Anglais)", "Langue et littérature (Français)", "Individus et sociétés", "Sciences", "Mathématiques", "Arts", "Éducation physique et à la santé", "Design"],
+    PEI1: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
+    PEI2: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
+    PEI3: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
+    PEI4: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
+    PEI5: ["Mathématiques", "Individus et sociétés", "Langue et littérature", "Design", "Sciences", "Art visuel", "Éducation physique et sportive", "Acquisition de langue (Anglais)", "Acquisition de langue (اللغة العربية)"],
     DP1: ["Langue et Littérature (Français NM)", "Langue Anglaise (NM)", "Géographie (NM)", "Mathématiques AA (NS)", "Biologie (NS)", "Physique (NS)", "Théorie de la Connaissance (TdC)", "Mémoire (EE)", "CAS"],
     DP2: ["Langue et Littérature (Français NM)", "Langue Anglaise (NM)", "Géographie (NM)", "Mathématiques AA (NS)", "Biologie (NS)", "Physique (NS)", "Théorie de la Connaissance (TdC)", "Mémoire (EE)", "CAS"]
 };
 
-// Critères par matière
+// Critères par matière - TOUTES LES MATIÈRES AVEC CRITÈRES SPÉCIFIQUES
 const criteriaBySubject = {
-    // Matières PEI (PEI1-PEI5)
-    "Acquisition de langues (Anglais)": {A: "Listening", B: "Reading", C: "Speaking", D: "Writing"},
-    "Langue et littérature (Français)": {A: "Analyse", B: "Organisation", C: "Production de texte", D: "Utilisation de la langue"},
-    "Individus et sociétés": {A: "Connaissances et compréhension", B: "Recherche", C: "Communication", D: "Pensée critique"},
-    "Sciences": {A: "Connaissances et compréhension", B: "Recherche et élaboration", C: "Traitement et évaluation", D: "Réflexion sur les répercussions"},
+    // Matières PEI (PEI1-PEI5) - CRITÈRES SPÉCIFIQUES
     "Mathématiques": {A: "Connaissances et compréhension", B: "Recherche de modèles", C: "Communication", D: "Application des mathématiques"},
-    "Arts": {A: "Connaissances et compréhension", B: "Développement des compétences", C: "Pensée créative", D: "Réaction"},
-    "Éducation physique et à la santé": {A: "Connaissances et compréhension", B: "Planification", C: "Application et exécution", D: "Réflexion et amélioration"},
+    "Individus et sociétés": {A: "Connaissances et compréhension", B: "Recherche", C: "Communication", D: "Pensée critique"},
+    "Langue et littérature": {A: "Analyse", B: "Organisation", C: "Production de texte", D: "Utilisation de la langue"},
     "Design": {A: "Recherche et analyse", B: "Développement des idées", C: "Création de la solution", D: "Évaluation"},
+    "Sciences": {A: "Connaissances et compréhension", B: "Recherche et élaboration", C: "Traitement et évaluation", D: "Réflexion sur les répercussions"},
+    "Art visuel": {A: "Connaissances et compréhension", B: "Développement des compétences", C: "Pensée créative", D: "Réaction"},
+    "Éducation physique et sportive": {A: "Connaissances et compréhension", B: "Planification", C: "Application et exécution", D: "Réflexion et amélioration"},
+    "Acquisition de langue (Anglais)": {A: "Listening", B: "Reading", C: "Speaking", D: "Writing"},
+    "Acquisition de langue (اللغة العربية)": {A: "أ الاستماع", B: "ب القراءة", C: "ج التحدث", D: "د الكتابة"},
+    
     // Matières DP (DP1 et DP2)
     "Langue et Littérature (Français NM)": {AO1: "Connaissances et compréhension des œuvres littéraires et des textes non-littéraires", AO2: "Application des compétences d'analyse et d'interprétation", AO3: "Communication claire, précise et efficace", AO4: "Maîtrise de l'usage de la langue"},
     "Langue Anglaise (NM)": {AO1: "Communication d'idées (interaction orale et écrite)", AO2: "Compréhension des messages (lecture, écoute)", AO3: "Maîtrise de la langue (précision, vocabulaire, prononciation/orthographe)", AO4: "Développement de la sensibilité interculturelle"},
@@ -109,15 +111,13 @@ const criteriaBySubject = {
     "CAS": {AO1: "Atteinte des 7 Résultats d'Apprentissage du CAS", AO2: "Réflexion régulière, honnête et approfondie sur les activités", AO3: "Planification et mise en œuvre du Projet CAS"}
 };
 
-// Élèves par classe et section
+// Élèves par classe et section - CONFIGURATION CORRECTE
 const studentsByClassAndSection = {
     garçons: {
         PEI1: ["Bilal", "Faysal", "Jad", "Manaf"],
         PEI2: ["Ahmed", "Ali", "Eyad", "Yasser"],
-        PEI3: ["Adam", "Ahmad", "Mohamed", "Seifeddine", "Wajih"],
-        PEI4: ["Abdulrahman", "Mohamed Amine", "Mohamed Younes", "Samir", "Youssef"],
-        PEI5: ["Badia Khaldi", "Luluwah Alghabashi"],
-        DP1: ["Yomna Masrouhi"],
+        PEI3: ["Adam", "Ahmad", "Mohamed Chalak", "Seifeddine", "Wajih"],
+        PEI4: ["Abdulrahman", "Mohamed Amine Sgheir", "Mohamed Younes", "Samir", "Youssef"],
         DP2: ["Habib", "Salah"]
     },
     filles: {

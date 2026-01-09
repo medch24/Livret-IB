@@ -81,15 +81,16 @@ let isDbConnected = false;
 
 // --- Structure Données (Référence pour les critères) ---
 const criteriaBySubject = {
-    // Matières PEI
-    "Acquisition de langues (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
-    "Langue et littérature (Français)":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
-    "Individus et sociétés":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
-    "Sciences":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
+    // Matières PEI (PEI1-PEI5) - CRITÈRES SPÉCIFIQUES
     "Mathématiques":{A:"Connaissances et compréhension",B:"Recherche de modèles",C:"Communication",D:"Application des mathématiques"},
-    "Arts":{A:"Connaissances et compréhension",B:"Développement des compétences",C:"Pensée créative",D:"Réaction"},
-    "Éducation physique et à la santé":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
+    "Individus et sociétés":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
+    "Langue et littérature":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "Design":{A:"Recherche et analyse",B:"Développement des idées",C:"Création de la solution",D:"Évaluation"},
+    "Sciences":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
+    "Art visuel":{A:"Connaissances et compréhension",B:"Développement des compétences",C:"Pensée créative",D:"Réaction"},
+    "Éducation physique et sportive":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
+    "Acquisition de langue (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
+    "Acquisition de langue (اللغة العربية)":{A:"أ الاستماع",B:"ب القراءة",C:"ج التحدث",D:"د الكتابة"},
     // Matières DP
     "Langue et Littérature (Français NM)":{AO1:"Connaissances et compréhension des œuvres littéraires et des textes non-littéraires",AO2:"Application des compétences d'analyse et d'interprétation",AO3:"Communication claire, précise et efficace",AO4:"Maîtrise de l'usage de la langue"},
     "Langue Anglaise (NM)":{AO1:"Communication d'idées (interaction orale et écrite)",AO2:"Compréhension des messages (lecture, écoute)",AO3:"Maîtrise de la langue (précision, vocabulaire, prononciation/orthographe)",AO4:"Développement de la sensibilité interculturelle"},
@@ -101,13 +102,17 @@ const criteriaBySubject = {
     "Mémoire (EE)":{AO1:"Développement d'une Question de Recherche",AO2:"Capacité à mener une recherche indépendante et pertinente",AO3:"Développement d'une argumentation structurée et critique",AO4:"Réflexion sur le processus d'apprentissage"},
     "CAS":{AO1:"Atteinte des 7 Résultats d'Apprentissage du CAS",AO2:"Réflexion régulière, honnête et approfondie sur les activités",AO3:"Planification et mise en œuvre du Projet CAS"},
     // Anciennes matières pour rétrocompatibilité
+    "Acquisition de langues (Anglais)":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
+    "Langue et littérature (Français)":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "Langues et littérature":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "Biologie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
     "Physique-Chimie":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
     "Langue Anglaise":{A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
     "Musique":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
+    "Arts":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
     "ART":{A:"Connaissances et comprehensions",B:"Développement des competences",C:"Pensée créative",D:"Réaction"},
     "Éducation Physique":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
+    "Éducation physique et à la santé":{A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
     "L.L":{A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
     "I.S":{A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
     "E.S":{A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"}
