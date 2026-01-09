@@ -251,6 +251,14 @@ async function fetchImage(url) {
         if (!response.ok) return null;
         const buffer = Buffer.from(await response.arrayBuffer());
         console.log(`Image fetched, size: ${buffer.length} bytes`);
+        
+        // Limite de taille : 500KB (pour éviter les erreurs Word)
+        const MAX_IMAGE_SIZE = 500 * 1024; // 500KB
+        if (buffer.length > MAX_IMAGE_SIZE) {
+            console.warn(`⚠️ Image too large (${buffer.length} bytes), will use smaller size in template`);
+            // On retourne quand même l'image mais on ajuste la taille dans le template
+        }
+        
         return buffer;
     } catch (error) {
         console.error(`Error fetching image:`, error.message);
@@ -402,8 +410,10 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                 return tagValue;
             },
             getSize: function(img, tagValue, tagName) {
-                // Taille de la photo : 150x150 pixels
-                return [150, 150];
+                // Taille de la photo : 100x100 pixels (réduit pour éviter erreurs Word)
+                // IMPORTANT: Taille réduite pour la section garçons pour éviter l'erreur
+                // "Word a rencontré une erreur lors de l'ouverture du fichier"
+                return [100, 100];
             }
         };
         
@@ -951,6 +961,84 @@ process.on('SIGINT', async () => {
 
 console.log('✅ Server startup sequence complete');
 console.log('==================================');
+
+// ENDPOINT ADMINISTRATIF : Afficher les contributions DP2 garçons
+// URL: /api/admin/view-dp2-garcons?secret=merge-dp2-2026
+app.get('/api/admin/view-dp2-garcons', async (req, res) => {
+    try {
+        // Protection simple
+        const secret = req.query.secret;
+        if (secret !== 'merge-dp2-2026') {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        if (!isDbConnected) {
+            return res.status(503).json({ error: 'Database not connected' });
+        }
+
+        const dp2Students = ['Habib', 'Salah'];
+        const result = {
+            students: [],
+            summary: {
+                totalStudents: dp2Students.length,
+                totalContributions: 0
+            },
+            orphanedContributions: []
+        };
+
+        // Récupérer les contributions pour chaque élève
+        for (const studentName of dp2Students) {
+            const contributions = await contributionsCollection.find({ 
+                studentSelected: studentName,
+                classSelected: 'DP2',
+                sectionSelected: 'garcons'
+            }).toArray();
+
+            const studentData = {
+                name: studentName,
+                contributionsCount: contributions.length,
+                subjects: contributions.map(c => ({
+                    subject: c.subjectSelected,
+                    teacher: c.teacherName || 'Non défini',
+                    hasComment: !!(c.teacherComment && c.teacherComment !== '-'),
+                    hasCriteria: !!c.criteriaValues,
+                    hasATL: !!(c.communicationEvaluation && c.communicationEvaluation.length > 0)
+                }))
+            };
+
+            result.students.push(studentData);
+            result.summary.totalContributions += contributions.length;
+        }
+
+        // Vérifier les contributions orphelines (noms complets)
+        const orphaned = await contributionsCollection.find({
+            studentSelected: { $in: ['Habib Lteif', 'Salah Boumalouga'] },
+            classSelected: 'DP2'
+        }).toArray();
+
+        result.orphanedContributions = orphaned.map(c => ({
+            studentName: c.studentSelected,
+            subject: c.subjectSelected,
+            teacher: c.teacherName || 'Non défini'
+        }));
+
+        result.summary.orphanedCount = orphaned.length;
+        result.summary.averagePerStudent = (result.summary.totalContributions / dp2Students.length).toFixed(1);
+
+        res.json({
+            success: true,
+            message: 'Contributions DP2 garçons récupérées',
+            data: result
+        });
+
+    } catch (error) {
+        console.error('❌ Error viewing DP2 garcons contributions:', error);
+        res.status(500).json({
+            error: 'Failed to view DP2 garcons contributions',
+            details: error.message
+        });
+    }
+});
 
 // ENDPOINT ADMINISTRATIF : Fusion des contributions DP2
 // URL: /api/admin/merge-dp2-names?secret=VOTRE_SECRET
