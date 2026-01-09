@@ -245,16 +245,28 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 }
 
 async function fetchImage(url) {
-    console.log(`🔍 Tentative de récupération d'image pour: ${url.substring(0, 60)}...`);
+    console.log(`🔍 Tentative de récupération d'image pour: ${url}`);
     
-    // Conversion des liens Google Drive en liens directs robustes
+    // 1. Vérifier si c'est une photo locale (nom de fichier ou chemin relatif)
+    if (!url.startsWith('http')) {
+        try {
+            const localPath = path.join(__dirname, '../public/photos', url);
+            if (fs.existsSync(localPath)) {
+                console.log(`🏠 Photo locale trouvée: ${localPath}`);
+                return fs.readFileSync(localPath);
+            }
+        } catch (e) {
+            console.error('❌ Erreur lecture photo locale:', e.message);
+        }
+    }
+
+    // 2. Conversion des liens Google Drive en liens directs robustes
     if (url.includes('googleusercontent.com/d/') || url.includes('drive.google.com')) {
         let fileId = '';
         if (url.includes('/d/')) fileId = url.split('/d/')[1].split('/')[0].split('?')[0];
         else if (url.includes('id=')) fileId = url.split('id=')[1].split('&')[0];
         
         if (fileId) {
-            // Utilisation d'un lien de téléchargement direct avec confirmation de sécurité ignorée
             url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
             console.log(`🔄 Lien Google Drive converti: ${url}`);
         }
@@ -263,8 +275,7 @@ async function fetchImage(url) {
     try {
         const response = await fetch(url, {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             },
             timeout: 10000
         });
@@ -272,29 +283,23 @@ async function fetchImage(url) {
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
         const contentType = response.headers.get('content-type');
-        console.log(`📄 Content-Type reçu: ${contentType}`);
-
         const arrayBuffer = await response.arrayBuffer();
         const originalBuffer = Buffer.from(arrayBuffer);
         
         if (contentType && contentType.includes('text/html')) {
-            console.error('❌ ERREUR: Reçu du HTML au lieu d\'une image (Blocage Google Drive probable)');
+            console.error('❌ ERREUR: Reçu du HTML au lieu d\'une image');
             return TRANSPARENT_PIXEL;
         }
 
-        console.log(`✅ Image téléchargée (${originalBuffer.length} bytes)`);
-        
         try {
             const image = await Jimp.read(originalBuffer);
             image.contain(150, 150);
-            const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
-            return processedBuffer;
+            return await image.getBufferAsync(Jimp.MIME_PNG);
         } catch (jimpErr) {
-            console.error('❌ Erreur Jimp (format non supporté?):', jimpErr.message);
             return originalBuffer;
         }
     } catch (error) {
-        console.error(`❌ Erreur lors du téléchargement de l'image (${url.substring(0, 40)}):`, error.message);
+        console.error(`❌ Erreur image (${url}):`, error.message);
         return TRANSPARENT_PIXEL;
     }
 }
