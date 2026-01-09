@@ -245,88 +245,57 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 }
 
 async function fetchImage(url) {
-    // Conversion des liens Google Drive en liens directs
-    if (url.includes('googleusercontent.com/d/') || url.includes('drive.google.com/uc?id=')) {
-        const fileId = url.split('/d/')[1] || url.split('id=')[1];
+    console.log(`🔍 Tentative de récupération d'image pour: ${url.substring(0, 60)}...`);
+    
+    // Conversion des liens Google Drive en liens directs robustes
+    if (url.includes('googleusercontent.com/d/') || url.includes('drive.google.com')) {
+        let fileId = '';
+        if (url.includes('/d/')) fileId = url.split('/d/')[1].split('/')[0].split('?')[0];
+        else if (url.includes('id=')) fileId = url.split('id=')[1].split('&')[0];
+        
         if (fileId) {
-            url = `https://drive.google.com/uc?export=download&id=${fileId.split('&')[0].split('/')[0]}`;
-            console.log(`🔄 Google Drive link converted to direct: ${url}`);
+            // Utilisation d'un lien de téléchargement direct avec confirmation de sécurité ignorée
+            url = `https://drive.google.com/uc?export=download&id=${fileId}&confirm=t`;
+            console.log(`🔄 Lien Google Drive converti: ${url}`);
         }
     }
+
     try {
-        console.log(`📷 Fetching image: ${url.substring(0, 50)}...`);
+        const response = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+            },
+            timeout: 10000
+        });
+
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        // Timeout de 5 secondes pour éviter blocage
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const contentType = response.headers.get('content-type');
+        console.log(`📄 Content-Type reçu: ${contentType}`);
+
+        const arrayBuffer = await response.arrayBuffer();
+        const originalBuffer = Buffer.from(arrayBuffer);
         
-        const response = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-            console.warn(`⚠️ Image fetch failed: ${response.status}`);
-            return null;
+        if (contentType && contentType.includes('text/html')) {
+            console.error('❌ ERREUR: Reçu du HTML au lieu d\'une image (Blocage Google Drive probable)');
+            return TRANSPARENT_PIXEL;
         }
-        
-        const originalBuffer = Buffer.from(await response.arrayBuffer());
-        console.log(`✅ Image téléchargée (${originalBuffer.length} bytes) pour URL: ${url.substring(0, 50)}...`);
+
+        console.log(`✅ Image téléchargée (${originalBuffer.length} bytes)`);
         
         try {
-            // Utiliser Jimp pour garantir un format PNG compatible Word et une taille correcte
             const image = await Jimp.read(originalBuffer);
-            // Redimensionner à 150x150 (plus grand pour meilleure qualité) tout en gardant le ratio
             image.contain(150, 150);
             const processedBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
-            console.log(`✅ Image traitée avec Jimp: ${processedBuffer.length} bytes`);
             return processedBuffer;
         } catch (jimpErr) {
-            console.error('❌ Erreur Jimp:', jimpErr.message);
+            console.error('❌ Erreur Jimp (format non supporté?):', jimpErr.message);
             return originalBuffer;
         }
-        console.log(`✅ Image fetched: ${originalBuffer.length} bytes`);
-        
-        // Vérifier que c'est bien une image (magic bytes)
-        const isPNG = originalBuffer[0] === 0x89 && originalBuffer[1] === 0x50;
-        const isJPG = originalBuffer[0] === 0xFF && originalBuffer[1] === 0xD8;
-        
-        if (!isPNG && !isJPG) {
-            console.warn(`⚠️ Format d'image invalide, ignorée`);
-            return null;
-        }
-        
-        // SOLUTION VERCEL-COMPATIBLE: Utiliser Jimp (Pure JS, pas de binaires système)
-        // Redimensionner à 80x80 pixels avec qualité JPEG
-        const image = await Jimp.read(originalBuffer);
-        
-        // Redimensionner en gardant les proportions et en centrant
-        image
-            .cover(80, 80)  // Recadrage intelligent 80x80
-            .quality(80);   // Qualité JPEG 80%
-        
-        // Convertir en buffer JPEG
-        const resizedBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-        
-        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (80x80px)`);
-        
-        // Vérifier la taille finale (sécurité supplémentaire)
-        const MAX_IMAGE_SIZE = 50 * 1024; // 50KB max après compression
-        if (resizedBuffer.length > MAX_IMAGE_SIZE) {
-            // Réduire encore la qualité si trop grande
-            image.quality(60);
-            const finalBuffer = await image.getBufferAsync(Jimp.MIME_JPEG);
-            
-            console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes`);
-            return finalBuffer;
-        }
-        
-        return resizedBuffer;
     } catch (error) {
-        if (error.name === 'AbortError') {
-            console.error(`⏱️ Image fetch timeout après 5s`);
-        } else {
-            console.error(`❌ Error fetching/processing image:`, error.message);
-        }
-        return null;
+        console.error(`❌ Erreur lors du téléchargement de l'image (${url.substring(0, 40)}):`, error.message);
+        return TRANSPARENT_PIXEL;
     }
 }
 
