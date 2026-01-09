@@ -826,8 +826,11 @@ app.post('/api/generateSingleWord', async (req, res) => {
 });
 
 // Nouvelle route: Générer un ZIP pour toute une classe
+// Updated: 2026-01-09 18:15 - Force redeploy
 app.post('/api/generateClassZip', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
+    console.log(`📦 [generateClassZip] Request received:`, { classSelected: req.body.classSelected, sectionSelected: req.body.sectionSelected });
+    
     try {
         const { classSelected, sectionSelected } = req.body;
         
