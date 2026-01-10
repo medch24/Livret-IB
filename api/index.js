@@ -177,24 +177,28 @@ app.post('/api/generateClassZip', async (req, res) => {
 
                 const studentInfo = await studentsCollection.findOne({ fullName: studentName });
                 
-                // Récupérer la photo de l'élève - utiliser fullName pour le nom de fichier
+                // Récupérer la photo de l'élève
+                // PRIORITÉ 1: URL Google Drive dans MongoDB
+                // PRIORITÉ 2: Fichier local (pour développement)
                 let photoUrl = null;
+                
                 if (studentInfo?.studentPhotoUrl) {
-                    // Si une URL est stockée en DB, l'utiliser
                     photoUrl = studentInfo.studentPhotoUrl;
+                    console.log(`  📸 URL photo depuis DB: ${photoUrl}`);
                 } else {
-                    // Sinon, chercher un fichier local avec le fullName exact
+                    console.warn(`  ⚠️ Pas d'URL photo dans DB pour ${studentName}`);
+                    // Essayer en local (développement uniquement)
                     const possibleExtensions = ['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'];
                     for (const ext of possibleExtensions) {
                         const possiblePath = path.join(__dirname, '../public/photos', `${studentName}${ext}`);
                         if (fs.existsSync(possiblePath)) {
                             photoUrl = `${studentName}${ext}`;
-                            console.log(`✅ Photo trouvée: ${photoUrl}`);
+                            console.log(`  📁 Photo locale trouvée: ${photoUrl}`);
                             break;
                         }
                     }
                     if (!photoUrl) {
-                        console.warn(`⚠️ Aucune photo trouvée pour: ${studentName}`);
+                        console.warn(`  ⚠️ Aucune photo trouvée (ni DB ni local) pour: ${studentName}`);
                     }
                 }
 
