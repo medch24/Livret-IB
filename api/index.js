@@ -110,6 +110,8 @@ async function fetchImage(url) {
 // Route principale de génération
 app.post('/api/generateClassZip', async (req, res) => {
     const { classSelected, sectionSelected } = req.body;
+    console.log(`\n🚀 Début génération ZIP - Classe: ${classSelected}, Section: ${sectionSelected}`);
+    
     try {
         await connectToMongo();
         
@@ -117,6 +119,8 @@ app.post('/api/generateClassZip', async (req, res) => {
             classSelected,
             sectionSelected
         });
+
+        console.log(`📋 ${studentNames.length} élèves trouvés:`, studentNames);
 
         if (!studentNames || studentNames.length === 0) {
             return res.status(404).json({ error: 'Aucun élève trouvé' });
@@ -131,19 +135,29 @@ app.post('/api/generateClassZip', async (req, res) => {
         zip.pipe(res);
 
         const templateUrl = classSelected.startsWith('DP') ? process.env.TEMPLATE_URL_DP : process.env.TEMPLATE_URL;
+        console.log(`📄 Téléchargement du template: ${templateUrl}`);
         const templateResponse = await fetch(templateUrl);
         const templateBuffer = await templateResponse.buffer();
+        console.log(`✅ Template téléchargé (${templateBuffer.length} bytes)`);
+
+        let successCount = 0;
+        let errorCount = 0;
 
         for (const studentName of studentNames) {
             try {
+                console.log(`\n👤 Traitement de ${studentName}...`);
+                
                 const contributions = await contributionsCollection.find({
                     studentSelected: studentName,
                     classSelected,
                     sectionSelected
                 }).toArray();
 
+                console.log(`  📚 ${contributions.length} contributions trouvées`);
+
                 if (!contributions || contributions.length === 0) {
                     console.warn(`⚠️ Aucune contribution pour ${studentName}`);
+                    errorCount++;
                     continue;
                 }
 
@@ -173,14 +187,52 @@ app.post('/api/generateClassZip', async (req, res) => {
                 const imageBuffer = await fetchImage(photoUrl);
 
                 // Formater les contributions pour le template
-                const formattedContributions = contributions.map(c => ({
-                    ...c,
-                    teacherName: c.teacherName || 'N/A',
-                    subjectName: c.subjectName || 'N/A',
-                    approachToLearning: c.approachToLearning || 'N/A',
-                    comments: c.comments || '',
-                    globalContexts: c.globalContexts || []
-                }));
+                const formattedContributions = contributions.map(c => {
+                    // Gérer les critères (A, B, C, D)
+                    const criteriaData = c.criteriaValues || {};
+                    const formatCriteria = (criterion) => {
+                        const data = criteriaData[criterion] || {};
+                        return {
+                            sem1: data.sem1 || '',
+                            sem2: data.sem2 || '',
+                            finalLevel: data.finalLevel || '',
+                            sem1Units: Array.isArray(data.sem1Units) ? data.sem1Units : [],
+                            sem2Units: Array.isArray(data.sem2Units) ? data.sem2Units : []
+                        };
+                    };
+
+                    return {
+                        teacherName: c.teacherName || 'N/A',
+                        subjectName: c.subjectName || 'N/A',
+                        approachToLearning: c.approachToLearning || 'N/A',
+                        comments: c.comments || '',
+                        teacherComment: c.teacherComment || '',
+                        globalContexts: Array.isArray(c.globalContexts) ? c.globalContexts : [],
+                        
+                        // Communication evaluation (tableau de 5 valeurs)
+                        communicationEvaluation: Array.isArray(c.communicationEvaluation) 
+                            ? c.communicationEvaluation 
+                            : ['', '', '', '', ''],
+                        
+                        // Nombre d'unités
+                        unitsSem1: c.unitsSem1 || 1,
+                        unitsSem2: c.unitsSem2 || 1,
+                        
+                        // Critères formatés
+                        criteriaA: formatCriteria('A'),
+                        criteriaB: formatCriteria('B'),
+                        criteriaC: formatCriteria('C'),
+                        criteriaD: formatCriteria('D'),
+                        
+                        // Valeurs des critères (pour compatibilité)
+                        criteriaValues: {
+                            A: formatCriteria('A'),
+                            B: formatCriteria('B'),
+                            C: formatCriteria('C'),
+                            D: formatCriteria('D')
+                        }
+                    };
+                });
 
                 const zipContent = new PizZip(templateBuffer);
                 const doc = new DocxTemplater(zipContent, {
@@ -191,29 +243,46 @@ app.post('/api/generateClassZip', async (req, res) => {
                     })],
                     paragraphLoop: true,
                     linebreaks: true,
-                    nullGetter: () => ''
+                    nullGetter: (part) => {
+                        console.log(`⚠️ Propriété manquante dans template: ${part.value}`);
+                        return '';
+                    }
                 });
 
-                doc.render({
-                    studentName,
-                    birthDate: studentInfo?.birthDate || 'N/A',
-                    image: imageBuffer,
-                    studentPhoto: imageBuffer,
-                    photo: imageBuffer,
-                    contributions: formattedContributions
-                });
+                try {
+                    doc.render({
+                        studentName,
+                        birthDate: studentInfo?.birthDate || 'N/A',
+                        image: imageBuffer,
+                        studentPhoto: imageBuffer,
+                        photo: imageBuffer,
+                        contributions: formattedContributions
+                    });
+                } catch (renderError) {
+                    console.error(`❌ Erreur de rendu pour ${studentName}:`, renderError);
+                    if (renderError.properties && renderError.properties.errors) {
+                        renderError.properties.errors.forEach(err => {
+                            console.error(`  - ${err.message}`, err);
+                        });
+                    }
+                    throw renderError;
+                }
 
                 const buf = doc.getZip().generate({ type: 'nodebuffer' });
                 zip.append(buf, { name: `${studentName}.docx` });
                 
+                successCount++;
                 console.log(`✅ Livret généré pour ${studentName}`);
             } catch (studentError) {
+                errorCount++;
                 console.error(`❌ Erreur pour ${studentName}:`, studentError.message);
+                console.error('Stack:', studentError.stack);
                 // Continuer avec les autres élèves
             }
         }
 
         await zip.finalize();
+        console.log(`\n🎉 Génération terminée: ${successCount} succès, ${errorCount} erreurs`);
     } catch (error) {
         console.error('❌ Error:', error);
         if (!res.headersSent) res.status(500).json({ error: error.message });
