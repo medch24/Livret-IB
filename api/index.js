@@ -50,7 +50,11 @@ async function connectToMongo() {
 }
 
 async function fetchImage(url) {
-    if (!url) return TRANSPARENT_PIXEL;
+    if (!url) {
+        console.log(`⚠️ Pas d'URL fournie, retour image transparente`);
+        return TRANSPARENT_PIXEL;
+    }
+    
     try {
         console.log(`🖼️ Tentative de chargement de l'image: ${url}`);
         
@@ -61,7 +65,9 @@ async function fetchImage(url) {
             const buffer = fs.readFileSync(localPathPhotos);
             const image = await Jimp.read(buffer);
             image.scaleToFit(180, 180);
-            return await image.getBufferAsync(Jimp.MIME_PNG);
+            const result = await image.getBufferAsync(Jimp.MIME_PNG);
+            console.log(`✅ Image traitée: ${result.length} bytes`);
+            return result;
         }
 
         // 2. Essayer à la racine du projet
@@ -71,10 +77,12 @@ async function fetchImage(url) {
             const buffer = fs.readFileSync(rootPath);
             const image = await Jimp.read(buffer);
             image.scaleToFit(180, 180);
-            return await image.getBufferAsync(Jimp.MIME_PNG);
+            const result = await image.getBufferAsync(Jimp.MIME_PNG);
+            console.log(`✅ Image traitée: ${result.length} bytes`);
+            return result;
         }
 
-        // 3. Si c'est une URL distante
+        // 3. Si c'est une URL distante (Google Drive)
         if (url.startsWith('http')) {
             console.log(`🌐 Téléchargement de l'image depuis: ${url}`);
             let finalUrl = url;
@@ -82,6 +90,7 @@ async function fetchImage(url) {
                 const match = url.match(/[-\w]{25,}/);
                 if (match && match[0]) {
                     finalUrl = `https://drive.google.com/uc?export=download&id=${match[0]}&confirm=t`;
+                    console.log(`🔄 URL Google Drive convertie: ${finalUrl}`);
                 }
             }
 
@@ -92,10 +101,14 @@ async function fetchImage(url) {
             
             if (response.ok) {
                 const buffer = await response.buffer();
+                console.log(`📥 Image téléchargée: ${buffer.length} bytes`);
                 const image = await Jimp.read(buffer);
                 image.scaleToFit(180, 180);
-                console.log(`✅ Image téléchargée et redimensionnée`);
-                return await image.getBufferAsync(Jimp.MIME_PNG);
+                const result = await image.getBufferAsync(Jimp.MIME_PNG);
+                console.log(`✅ Image traitée: ${result.length} bytes`);
+                return result;
+            } else {
+                console.warn(`⚠️ Échec téléchargement: ${response.status}`);
             }
         }
         
@@ -103,6 +116,7 @@ async function fetchImage(url) {
         return TRANSPARENT_PIXEL;
     } catch (error) {
         console.error(`❌ Erreur lors du chargement de l'image ${url}:`, error.message);
+        console.error('Stack:', error.stack);
         return TRANSPARENT_PIXEL;
     }
 }
@@ -185,6 +199,13 @@ app.post('/api/generateClassZip', async (req, res) => {
                 }
 
                 const imageBuffer = await fetchImage(photoUrl);
+                
+                // Vérifier que imageBuffer est bien un Buffer
+                if (!Buffer.isBuffer(imageBuffer)) {
+                    console.error(`❌ imageBuffer n'est pas un Buffer pour ${studentName}!`);
+                    throw new Error('Image buffer invalide');
+                }
+                console.log(`  🖼️ Image buffer valide: ${imageBuffer.length} bytes`);
 
                 // Formater les contributions pour le template
                 const formattedContributions = contributions.map(c => {
@@ -261,12 +282,28 @@ app.post('/api/generateClassZip', async (req, res) => {
                 });
 
                 const zipContent = new PizZip(templateBuffer);
+                
+                // Configuration du module d'image avec gestion d'erreur
+                const imageModule = new ImageModule({
+                    centered: false,
+                    getImage: (tagValue) => {
+                        console.log(`  📸 getImage appelé pour tag:`, typeof tagValue, Buffer.isBuffer(tagValue) ? `Buffer (${tagValue.length} bytes)` : 'Non-Buffer');
+                        // Si c'est déjà un Buffer, le retourner directement
+                        if (Buffer.isBuffer(tagValue)) {
+                            return tagValue;
+                        }
+                        // Sinon retourner le pixel transparent
+                        console.warn(`  ⚠️ tagValue n'est pas un Buffer, utilisation de TRANSPARENT_PIXEL`);
+                        return TRANSPARENT_PIXEL;
+                    },
+                    getSize: (img, tagValue, tagName) => {
+                        console.log(`  📏 getSize appelé pour tag: ${tagName}`);
+                        return [150, 150];
+                    }
+                });
+                
                 const doc = new DocxTemplater(zipContent, {
-                    modules: [new ImageModule({
-                        centered: false,
-                        getImage: (tagValue) => tagValue,
-                        getSize: () => [150, 150]
-                    })],
+                    modules: [imageModule],
                     paragraphLoop: true,
                     linebreaks: true,
                     nullGetter: (part) => {
