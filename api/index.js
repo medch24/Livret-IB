@@ -121,6 +121,30 @@ async function fetchImage(url) {
     }
 }
 
+// Route de diagnostic pour vérifier les élèves
+app.get('/api/checkStudents', async (req, res) => {
+    try {
+        await connectToMongo();
+        const students = await studentsCollection.find({}).toArray();
+        
+        const report = students.map(s => ({
+            fullName: s.fullName,
+            birthDate: s.birthDate,
+            hasPhotoUrl: !!s.studentPhotoUrl,
+            photoUrl: s.studentPhotoUrl ? s.studentPhotoUrl.substring(0, 50) + '...' : null
+        }));
+        
+        res.json({
+            total: students.length,
+            withPhotos: report.filter(r => r.hasPhotoUrl).length,
+            withoutPhotos: report.filter(r => !r.hasPhotoUrl).length,
+            students: report
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Route principale de génération
 app.post('/api/generateClassZip', async (req, res) => {
     const { classSelected, sectionSelected } = req.body;
