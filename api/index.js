@@ -63,7 +63,20 @@ async function fetchImage(url) {
 
         // 2. Si c'est une URL distante
         if (url.startsWith('http')) {
-            const response = await fetch(url, { timeout: 5000 });
+            // Gestion spécifique Google Drive
+            let finalUrl = url;
+            if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
+                const match = url.match(/[-\w]{25,}/);
+                if (match && match[0]) {
+                    finalUrl = `https://drive.google.com/uc?export=download&id=${match[0]}&confirm=t`;
+                }
+            }
+
+            const response = await fetch(finalUrl, { 
+                timeout: 8000,
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+            });
+            
             if (response.ok) {
                 const buffer = await response.buffer();
                 const image = await Jimp.read(buffer);
@@ -83,7 +96,6 @@ app.post('/api/generateClassZip', async (req, res) => {
     try {
         await connectToMongo();
         
-        // Récupérer les élèves distincts depuis les contributions
         const studentNames = await contributionsCollection.distinct('studentSelected', {
             classSelected,
             sectionSelected
@@ -94,14 +106,13 @@ app.post('/api/generateClassZip', async (req, res) => {
         }
 
         const zip = archiver('zip', { zlib: { level: 5 } });
-        const safeSection = sectionSelected.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const safeSection = (sectionSelected || "section").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
         const zipName = `Livrets-${classSelected}-${safeSection}.zip`;
 
         res.setHeader('Content-Type', 'application/zip');
         res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
         zip.pipe(res);
 
-        // Template URL
         const templateUrl = classSelected.startsWith('DP') ? process.env.TEMPLATE_URL_DP : process.env.TEMPLATE_URL;
         const templateResponse = await fetch(templateUrl);
         const templateBuffer = await templateResponse.buffer();
