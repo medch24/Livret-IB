@@ -52,17 +52,31 @@ async function connectToMongo() {
 async function fetchImage(url) {
     if (!url) return TRANSPARENT_PIXEL;
     try {
-        // 1. Essayer en local d'abord
-        const localPath = path.join(__dirname, '../public/photos', url);
-        if (fs.existsSync(localPath)) {
-            const buffer = fs.readFileSync(localPath);
+        console.log(`🖼️ Tentative de chargement de l'image: ${url}`);
+        
+        // 1. Essayer dans le dossier public/photos
+        const localPathPhotos = path.join(__dirname, '../public/photos', url);
+        if (fs.existsSync(localPathPhotos)) {
+            console.log(`✅ Image trouvée dans public/photos: ${localPathPhotos}`);
+            const buffer = fs.readFileSync(localPathPhotos);
             const image = await Jimp.read(buffer);
             image.scaleToFit(180, 180);
             return await image.getBufferAsync(Jimp.MIME_PNG);
         }
 
-        // 2. Si c'est une URL distante
+        // 2. Essayer à la racine du projet
+        const rootPath = path.join(__dirname, '..', url);
+        if (fs.existsSync(rootPath)) {
+            console.log(`✅ Image trouvée à la racine: ${rootPath}`);
+            const buffer = fs.readFileSync(rootPath);
+            const image = await Jimp.read(buffer);
+            image.scaleToFit(180, 180);
+            return await image.getBufferAsync(Jimp.MIME_PNG);
+        }
+
+        // 3. Si c'est une URL distante
         if (url.startsWith('http')) {
+            console.log(`🌐 Téléchargement de l'image depuis: ${url}`);
             let finalUrl = url;
             if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
                 const match = url.match(/[-\w]{25,}/);
@@ -80,11 +94,15 @@ async function fetchImage(url) {
                 const buffer = await response.buffer();
                 const image = await Jimp.read(buffer);
                 image.scaleToFit(180, 180);
+                console.log(`✅ Image téléchargée et redimensionnée`);
                 return await image.getBufferAsync(Jimp.MIME_PNG);
             }
         }
+        
+        console.warn(`⚠️ Image non trouvée: ${url}, utilisation d'un pixel transparent`);
         return TRANSPARENT_PIXEL;
     } catch (error) {
+        console.error(`❌ Erreur lors du chargement de l'image ${url}:`, error.message);
         return TRANSPARENT_PIXEL;
     }
 }
@@ -117,36 +135,77 @@ app.post('/api/generateClassZip', async (req, res) => {
         const templateBuffer = await templateResponse.buffer();
 
         for (const studentName of studentNames) {
-            const contributions = await contributionsCollection.find({
-                studentSelected: studentName,
-                classSelected,
-                sectionSelected
-            }).toArray();
+            try {
+                const contributions = await contributionsCollection.find({
+                    studentSelected: studentName,
+                    classSelected,
+                    sectionSelected
+                }).toArray();
 
-            const studentInfo = await studentsCollection.findOne({ fullName: studentName });
-            const photoUrl = studentInfo?.studentPhotoUrl || `${studentName}.jpg`;
-            const imageBuffer = await fetchImage(photoUrl);
+                if (!contributions || contributions.length === 0) {
+                    console.warn(`⚠️ Aucune contribution pour ${studentName}`);
+                    continue;
+                }
 
-            const zipContent = new PizZip(templateBuffer);
-            const doc = new DocxTemplater(zipContent, {
-                modules: [new ImageModule({
-                    centered: false,
-                    getImage: (tagValue) => tagValue,
-                    getSize: () => [150, 150]
-                })]
-            });
+                const studentInfo = await studentsCollection.findOne({ fullName: studentName });
+                
+                // Récupérer la photo de l'élève
+                let photoUrl = null;
+                if (studentInfo?.studentPhotoUrl) {
+                    photoUrl = studentInfo.studentPhotoUrl;
+                } else {
+                    // Essayer de trouver la photo dans le dossier public avec différentes extensions
+                    const possibleExtensions = ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG'];
+                    for (const ext of possibleExtensions) {
+                        const possiblePath = path.join(__dirname, '..', `${studentName}${ext}`);
+                        if (fs.existsSync(possiblePath)) {
+                            photoUrl = `${studentName}${ext}`;
+                            break;
+                        }
+                    }
+                }
 
-            doc.render({
-                studentName,
-                birthDate: studentInfo?.birthDate || 'N/A',
-                image: imageBuffer,
-                studentPhoto: imageBuffer,
-                photo: imageBuffer,
-                contributions: contributions
-            });
+                const imageBuffer = await fetchImage(photoUrl);
 
-            const buf = doc.getZip().generate({ type: 'nodebuffer' });
-            zip.append(buf, { name: `${studentName}.docx` });
+                // Formater les contributions pour le template
+                const formattedContributions = contributions.map(c => ({
+                    ...c,
+                    teacherName: c.teacherName || 'N/A',
+                    subjectName: c.subjectName || 'N/A',
+                    approachToLearning: c.approachToLearning || 'N/A',
+                    comments: c.comments || '',
+                    globalContexts: c.globalContexts || []
+                }));
+
+                const zipContent = new PizZip(templateBuffer);
+                const doc = new DocxTemplater(zipContent, {
+                    modules: [new ImageModule({
+                        centered: false,
+                        getImage: (tagValue) => tagValue,
+                        getSize: () => [150, 150]
+                    })],
+                    paragraphLoop: true,
+                    linebreaks: true,
+                    nullGetter: () => ''
+                });
+
+                doc.render({
+                    studentName,
+                    birthDate: studentInfo?.birthDate || 'N/A',
+                    image: imageBuffer,
+                    studentPhoto: imageBuffer,
+                    photo: imageBuffer,
+                    contributions: formattedContributions
+                });
+
+                const buf = doc.getZip().generate({ type: 'nodebuffer' });
+                zip.append(buf, { name: `${studentName}.docx` });
+                
+                console.log(`✅ Livret généré pour ${studentName}`);
+            } catch (studentError) {
+                console.error(`❌ Erreur pour ${studentName}:`, studentError.message);
+                // Continuer avec les autres élèves
+            }
         }
 
         await zip.finalize();
