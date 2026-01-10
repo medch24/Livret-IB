@@ -145,6 +145,149 @@ app.get('/api/checkStudents', async (req, res) => {
     }
 });
 
+// Route pour récupérer les informations d'un élève
+app.post('/api/fetchStudentInfo', async (req, res) => {
+    try {
+        await connectToMongo();
+        const { studentSelected } = req.body;
+        
+        if (!studentSelected) {
+            return res.status(400).json({ error: 'studentSelected requis' });
+        }
+        
+        const student = await studentsCollection.findOne({ fullName: studentSelected });
+        
+        if (!student) {
+            // Retourner un objet vide au lieu d'une erreur
+            return res.json({ fullName: studentSelected, birthDate: null, studentPhotoUrl: null });
+        }
+        
+        res.json(student);
+    } catch (error) {
+        console.error('❌ Erreur fetchStudentInfo:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route pour récupérer les contributions d'un élève
+app.post('/api/fetchStudentContributions', async (req, res) => {
+    try {
+        await connectToMongo();
+        const { student, classSelected, sectionSelected } = req.body;
+        
+        const studentName = student || req.body.studentSelected;
+        
+        if (!studentName) {
+            return res.status(400).json({ error: 'student requis' });
+        }
+        
+        const query = { studentSelected: studentName };
+        if (classSelected) query.classSelected = classSelected;
+        if (sectionSelected) query.sectionSelected = sectionSelected;
+        
+        const contributions = await contributionsCollection.find(query).toArray();
+        
+        res.json(contributions);
+    } catch (error) {
+        console.error('❌ Erreur fetchStudentContributions:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route pour récupérer les données (élèves par classe)
+app.post('/api/fetchData', async (req, res) => {
+    try {
+        await connectToMongo();
+        const { classSelected, sectionSelected } = req.body;
+        
+        const query = {};
+        if (classSelected) query.classSelected = classSelected;
+        if (sectionSelected) query.sectionSelected = sectionSelected;
+        
+        const studentNames = await contributionsCollection.distinct('studentSelected', query);
+        
+        res.json({ students: studentNames });
+    } catch (error) {
+        console.error('❌ Erreur fetchData:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route pour sauvegarder une contribution
+app.post('/api/saveContribution', async (req, res) => {
+    try {
+        await connectToMongo();
+        const contribution = req.body;
+        
+        if (contribution._id || contribution.contributionId) {
+            // Mise à jour
+            const id = contribution._id || contribution.contributionId;
+            delete contribution._id;
+            delete contribution.contributionId;
+            
+            await contributionsCollection.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: contribution }
+            );
+            
+            res.json({ success: true, contributionId: id });
+        } else {
+            // Création
+            const result = await contributionsCollection.insertOne(contribution);
+            res.json({ success: true, contributionId: result.insertedId });
+        }
+    } catch (error) {
+        console.error('❌ Erreur saveContribution:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route pour récupérer une contribution spécifique
+app.post('/api/fetchContribution', async (req, res) => {
+    try {
+        await connectToMongo();
+        const { contributionId } = req.body;
+        
+        if (!contributionId) {
+            return res.status(400).json({ error: 'contributionId requis' });
+        }
+        
+        const contribution = await contributionsCollection.findOne({ 
+            _id: new ObjectId(contributionId) 
+        });
+        
+        if (!contribution) {
+            return res.status(404).json({ error: 'Contribution non trouvée' });
+        }
+        
+        res.json(contribution);
+    } catch (error) {
+        console.error('❌ Erreur fetchContribution:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route pour supprimer une contribution
+app.post('/api/deleteContribution', async (req, res) => {
+    try {
+        await connectToMongo();
+        const { contributionId } = req.body;
+        
+        if (!contributionId) {
+            return res.status(400).json({ error: 'contributionId requis' });
+        }
+        
+        await contributionsCollection.deleteOne({ 
+            _id: new ObjectId(contributionId) 
+        });
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('❌ Erreur deleteContribution:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Route principale de génération
 app.post('/api/generateClassZip', async (req, res) => {
     const { classSelected, sectionSelected } = req.body;
