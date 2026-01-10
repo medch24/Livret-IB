@@ -149,19 +149,24 @@ app.post('/api/generateClassZip', async (req, res) => {
 
                 const studentInfo = await studentsCollection.findOne({ fullName: studentName });
                 
-                // Récupérer la photo de l'élève
+                // Récupérer la photo de l'élève - utiliser fullName pour le nom de fichier
                 let photoUrl = null;
                 if (studentInfo?.studentPhotoUrl) {
+                    // Si une URL est stockée en DB, l'utiliser
                     photoUrl = studentInfo.studentPhotoUrl;
                 } else {
-                    // Essayer de trouver la photo dans le dossier public avec différentes extensions
-                    const possibleExtensions = ['.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG'];
+                    // Sinon, chercher un fichier local avec le fullName exact
+                    const possibleExtensions = ['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'];
                     for (const ext of possibleExtensions) {
-                        const possiblePath = path.join(__dirname, '..', `${studentName}${ext}`);
+                        const possiblePath = path.join(__dirname, '../public/photos', `${studentName}${ext}`);
                         if (fs.existsSync(possiblePath)) {
                             photoUrl = `${studentName}${ext}`;
+                            console.log(`✅ Photo trouvée: ${photoUrl}`);
                             break;
                         }
+                    }
+                    if (!photoUrl) {
+                        console.warn(`⚠️ Aucune photo trouvée pour: ${studentName}`);
                     }
                 }
 
