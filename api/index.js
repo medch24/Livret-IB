@@ -190,16 +190,44 @@ app.post('/api/generateClassZip', async (req, res) => {
                 const formattedContributions = contributions.map(c => {
                     // Gérer les critères (A, B, C, D)
                     const criteriaData = c.criteriaValues || {};
+                    const unitsSem1Count = c.unitsSem1 || 1;
+                    const unitsSem2Count = c.unitsSem2 || 1;
+                    
                     const formatCriteria = (criterion) => {
                         const data = criteriaData[criterion] || {};
+                        
+                        // Créer des tableaux d'unités avec la bonne taille
+                        const sem1Units = Array.isArray(data.sem1Units) 
+                            ? data.sem1Units 
+                            : [];
+                        const sem2Units = Array.isArray(data.sem2Units) 
+                            ? data.sem2Units 
+                            : [];
+                        
+                        // Remplir avec des chaînes vides si nécessaire
+                        while (sem1Units.length < unitsSem1Count) {
+                            sem1Units.push('');
+                        }
+                        while (sem2Units.length < unitsSem2Count) {
+                            sem2Units.push('');
+                        }
+                        
                         return {
                             sem1: data.sem1 || '',
                             sem2: data.sem2 || '',
                             finalLevel: data.finalLevel || '',
-                            sem1Units: Array.isArray(data.sem1Units) ? data.sem1Units : [],
-                            sem2Units: Array.isArray(data.sem2Units) ? data.sem2Units : []
+                            sem1Units: sem1Units,
+                            sem2Units: sem2Units
                         };
                     };
+
+                    // S'assurer que communicationEvaluation a toujours 5 éléments
+                    const commEval = Array.isArray(c.communicationEvaluation) 
+                        ? c.communicationEvaluation 
+                        : [];
+                    while (commEval.length < 5) {
+                        commEval.push('');
+                    }
 
                     return {
                         teacherName: c.teacherName || 'N/A',
@@ -210,13 +238,11 @@ app.post('/api/generateClassZip', async (req, res) => {
                         globalContexts: Array.isArray(c.globalContexts) ? c.globalContexts : [],
                         
                         // Communication evaluation (tableau de 5 valeurs)
-                        communicationEvaluation: Array.isArray(c.communicationEvaluation) 
-                            ? c.communicationEvaluation 
-                            : ['', '', '', '', ''],
+                        communicationEvaluation: commEval,
                         
                         // Nombre d'unités
-                        unitsSem1: c.unitsSem1 || 1,
-                        unitsSem2: c.unitsSem2 || 1,
+                        unitsSem1: unitsSem1Count,
+                        unitsSem2: unitsSem2Count,
                         
                         // Critères formatés
                         criteriaA: formatCriteria('A'),
@@ -250,14 +276,17 @@ app.post('/api/generateClassZip', async (req, res) => {
                 });
 
                 try {
-                    doc.render({
-                        studentName,
+                    const renderData = {
+                        studentName: studentName || '',
                         birthDate: studentInfo?.birthDate || 'N/A',
                         image: imageBuffer,
                         studentPhoto: imageBuffer,
                         photo: imageBuffer,
-                        contributions: formattedContributions
-                    });
+                        contributions: formattedContributions || []
+                    };
+                    
+                    console.log(`  📝 Rendu avec ${formattedContributions.length} contributions`);
+                    doc.render(renderData);
                 } catch (renderError) {
                     console.error(`❌ Erreur de rendu pour ${studentName}:`, renderError);
                     if (renderError.properties && renderError.properties.errors) {
