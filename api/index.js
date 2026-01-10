@@ -201,39 +201,10 @@ app.post('/api/generateClassZip', async (req, res) => {
 
                 const studentInfo = await studentsCollection.findOne({ fullName: studentName });
                 
-                // Récupérer la photo de l'élève
-                // PRIORITÉ 1: URL Google Drive dans MongoDB
-                // PRIORITÉ 2: Fichier local (pour développement)
-                let photoUrl = null;
-                
-                if (studentInfo?.studentPhotoUrl) {
-                    photoUrl = studentInfo.studentPhotoUrl;
-                    console.log(`  📸 URL photo depuis DB: ${photoUrl}`);
-                } else {
-                    console.warn(`  ⚠️ Pas d'URL photo dans DB pour ${studentName}`);
-                    // Essayer en local (développement uniquement)
-                    const possibleExtensions = ['.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'];
-                    for (const ext of possibleExtensions) {
-                        const possiblePath = path.join(__dirname, '../public/photos', `${studentName}${ext}`);
-                        if (fs.existsSync(possiblePath)) {
-                            photoUrl = `${studentName}${ext}`;
-                            console.log(`  📁 Photo locale trouvée: ${photoUrl}`);
-                            break;
-                        }
-                    }
-                    if (!photoUrl) {
-                        console.warn(`  ⚠️ Aucune photo trouvée (ni DB ni local) pour: ${studentName}`);
-                    }
-                }
-
-                const imageBuffer = await fetchImage(photoUrl);
-                
-                // Vérifier que imageBuffer est bien un Buffer
-                if (!Buffer.isBuffer(imageBuffer)) {
-                    console.error(`❌ imageBuffer n'est pas un Buffer pour ${studentName}!`);
-                    throw new Error('Image buffer invalide');
-                }
-                console.log(`  🖼️ Image buffer valide: ${imageBuffer.length} bytes`);
+                // ⚠️ PHOTOS DÉSACTIVÉES - Utilisation d'un pixel transparent pour éviter les erreurs
+                // Les photos devront être ajoutées manuellement dans les documents Word
+                console.log(`  📝 Génération sans photo (à ajouter manuellement)`);
+                const imageBuffer = TRANSPARENT_PIXEL;
 
                 // Formater les contributions pour le template
                 const formattedContributions = contributions.map(c => {
@@ -311,31 +282,13 @@ app.post('/api/generateClassZip', async (req, res) => {
 
                 const zipContent = new PizZip(templateBuffer);
                 
-                // Configuration du module d'image avec gestion d'erreur
-                const imageModule = new ImageModule({
-                    centered: false,
-                    getImage: (tagValue) => {
-                        console.log(`  📸 getImage appelé pour tag:`, typeof tagValue, Buffer.isBuffer(tagValue) ? `Buffer (${tagValue.length} bytes)` : 'Non-Buffer');
-                        // Si c'est déjà un Buffer, le retourner directement
-                        if (Buffer.isBuffer(tagValue)) {
-                            return tagValue;
-                        }
-                        // Sinon retourner le pixel transparent
-                        console.warn(`  ⚠️ tagValue n'est pas un Buffer, utilisation de TRANSPARENT_PIXEL`);
-                        return TRANSPARENT_PIXEL;
-                    },
-                    getSize: (img, tagValue, tagName) => {
-                        console.log(`  📏 getSize appelé pour tag: ${tagName}`);
-                        return [150, 150];
-                    }
-                });
-                
+                // ⚠️ MODULE IMAGE DÉSACTIVÉ pour éviter les erreurs
+                // Les photos devront être ajoutées manuellement dans Word
                 const doc = new DocxTemplater(zipContent, {
-                    modules: [imageModule],
                     paragraphLoop: true,
                     linebreaks: true,
                     nullGetter: (part) => {
-                        console.log(`⚠️ Propriété manquante dans template: ${part.value}`);
+                        // Retourner silencieusement une chaîne vide pour les propriétés manquantes
                         return '';
                     }
                 });
@@ -344,13 +297,14 @@ app.post('/api/generateClassZip', async (req, res) => {
                     const renderData = {
                         studentName: studentName || '',
                         birthDate: studentInfo?.birthDate || 'N/A',
-                        image: imageBuffer,
-                        studentPhoto: imageBuffer,
-                        photo: imageBuffer,
+                        // ⚠️ Images désactivées - à ajouter manuellement
+                        // image: imageBuffer,
+                        // studentPhoto: imageBuffer,
+                        // photo: imageBuffer,
                         contributions: formattedContributions || []
                     };
                     
-                    console.log(`  📝 Rendu avec ${formattedContributions.length} contributions`);
+                    console.log(`  📝 Rendu avec ${formattedContributions.length} contributions (sans photo)`);
                     doc.render(renderData);
                 } catch (renderError) {
                     console.error(`❌ Erreur de rendu pour ${studentName}:`, renderError);
