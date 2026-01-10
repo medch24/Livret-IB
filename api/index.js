@@ -63,7 +63,6 @@ async function fetchImage(url) {
 
         // 2. Si c'est une URL distante
         if (url.startsWith('http')) {
-            // Gestion spécifique Google Drive
             let finalUrl = url;
             if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
                 const match = url.match(/[-\w]{25,}/);
