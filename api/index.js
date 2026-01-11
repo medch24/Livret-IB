@@ -177,7 +177,14 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
         
         const studentName = student || req.body.studentSelected;
         
+        console.log('📚 Récupération contributions:', {
+            student: studentName,
+            class: classSelected,
+            section: sectionSelected
+        });
+        
         if (!studentName) {
+            console.warn('⚠️ Pas de nom d\'élève fourni');
             return res.status(400).json({ error: 'student requis' });
         }
         
@@ -185,12 +192,14 @@ app.post('/api/fetchStudentContributions', async (req, res) => {
         if (classSelected) query.classSelected = classSelected;
         if (sectionSelected) query.sectionSelected = sectionSelected;
         
+        console.log('🔍 Query MongoDB:', query);
         const contributions = await contributionsCollection.find(query).toArray();
+        console.log(`✅ ${contributions.length} contributions trouvées`);
         
         res.json(contributions);
     } catch (error) {
         console.error('❌ Erreur fetchStudentContributions:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, stack: error.stack });
     }
 });
 
@@ -219,26 +228,43 @@ app.post('/api/saveContribution', async (req, res) => {
         await connectToMongo();
         const contribution = req.body;
         
+        console.log('📝 Sauvegarde contribution:', {
+            hasId: !!(contribution._id || contribution.contributionId),
+            studentSelected: contribution.studentSelected,
+            subjectName: contribution.subjectName
+        });
+        
         if (contribution._id || contribution.contributionId) {
             // Mise à jour
             const id = contribution._id || contribution.contributionId;
             delete contribution._id;
             delete contribution.contributionId;
             
-            await contributionsCollection.updateOne(
-                { _id: new ObjectId(id) },
+            // Convertir l'ID en ObjectId si c'est une chaîne
+            let objectId;
+            try {
+                objectId = typeof id === 'string' ? new ObjectId(id) : id;
+            } catch (err) {
+                console.error('❌ ID invalide:', id, err);
+                return res.status(400).json({ error: 'ID invalide' });
+            }
+            
+            const result = await contributionsCollection.updateOne(
+                { _id: objectId },
                 { $set: contribution }
             );
             
+            console.log('✅ Contribution mise à jour:', result.modifiedCount);
             res.json({ success: true, contributionId: id });
         } else {
             // Création
             const result = await contributionsCollection.insertOne(contribution);
+            console.log('✅ Contribution créée:', result.insertedId);
             res.json({ success: true, contributionId: result.insertedId });
         }
     } catch (error) {
         console.error('❌ Erreur saveContribution:', error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, stack: error.stack });
     }
 });
 
