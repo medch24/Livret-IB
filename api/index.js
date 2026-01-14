@@ -19,6 +19,16 @@ try {
 
 const TRANSPARENT_PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
+// ⚠️ CONFIGURATION CRITIQUE: TEMPLATE WORD ⚠️
+// URL GOOGLE DOCS FORCÉE - Les variables d'environnement Vercel sont IGNORÉES
+const GOOGLE_DOCS_TEMPLATE_URL = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
+console.log('\n🔧 ===== CONFIGURATION TEMPLATE WORD =====');
+console.log('✅ Source: GOOGLE DOCS (URL fixe)');
+console.log(`📄 URL: ${GOOGLE_DOCS_TEMPLATE_URL}`);
+console.log('⚠️  IMPORTANT: Variables TEMPLATE_URL et TEMPLATE_URL_DP sont IGNORÉES');
+console.log('⚠️  Le code utilise TOUJOURS Google Docs, peu importe les variables Vercel');
+console.log('=========================================\n');
+
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -341,20 +351,22 @@ app.post('/api/generateClassZip', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
         zip.pipe(res);
 
-        // Utiliser l'URL du template Google Docs
-        // Pour DP: https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx
-        const templateUrl = classSelected.startsWith('DP') 
-            ? (process.env.TEMPLATE_URL_DP || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx')
-            : (process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx');
+        // FORCER L'UTILISATION DE GOOGLE DOCS (ignorer variables d'environnement)
+        // URL Google Docs du modèle Word
+        const GOOGLE_DOCS_TEMPLATE = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
+        const templateUrl = GOOGLE_DOCS_TEMPLATE;
         
-        console.log(`📄 Téléchargement du template depuis: ${templateUrl}`);
+        console.log(`📄 TEMPLATE FORCÉ: Google Docs`);
+        console.log(`   URL: ${templateUrl}`);
         console.log(`   Classe: ${classSelected}, Type: ${classSelected.startsWith('DP') ? 'DP' : 'PEI'}`);
+        console.log(`   Variables env ignorées (TEMPLATE_URL: ${process.env.TEMPLATE_URL ? 'existe mais ignorée' : 'non définie'})`);
+        console.log(`   Variables env ignorées (TEMPLATE_URL_DP: ${process.env.TEMPLATE_URL_DP ? 'existe mais ignorée' : 'non définie'})`);
         
         const templateResponse = await fetch(templateUrl);
         
         if (!templateResponse.ok) {
             console.error(`❌ Erreur téléchargement template: ${templateResponse.status} ${templateResponse.statusText}`);
-            throw new Error(`Impossible de télécharger le template: ${templateResponse.status}`);
+            throw new Error(`Impossible de télécharger le template Google Docs: ${templateResponse.status}`);
         }
         
         const templateBuffer = await templateResponse.buffer();
@@ -536,16 +548,20 @@ app.post('/api/generateSingleWord', async (req, res) => {
             });
         }
         
-        // 1. Télécharger le template depuis Google Docs
-        const templateUrl = classSelected.startsWith('DP') 
-            ? (process.env.TEMPLATE_URL_DP || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx')
-            : (process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx');
+        // FORCER L'UTILISATION DE GOOGLE DOCS (ignorer variables d'environnement)
+        const GOOGLE_DOCS_TEMPLATE = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
+        const templateUrl = GOOGLE_DOCS_TEMPLATE;
+        
+        console.log(`📄 TEMPLATE FORCÉ: Google Docs`);
+        console.log(`   URL: ${templateUrl}`);
+        console.log(`   Variables env ignorées (TEMPLATE_URL: ${process.env.TEMPLATE_URL ? 'existe mais ignorée' : 'non définie'})`);
+        console.log(`   Variables env ignorées (TEMPLATE_URL_DP: ${process.env.TEMPLATE_URL_DP ? 'existe mais ignorée' : 'non définie'})`);
         
         console.log(`📄 Téléchargement template: ${templateUrl}`);
         const templateResponse = await fetch(templateUrl);
         
         if (!templateResponse.ok) {
-            throw new Error(`Erreur téléchargement template: ${templateResponse.status}`);
+            throw new Error(`Erreur téléchargement template Google Docs: ${templateResponse.status}`);
         }
         
         const templateBuffer = await templateResponse.buffer();
