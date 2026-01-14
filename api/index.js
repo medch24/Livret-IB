@@ -475,20 +475,17 @@ app.post('/api/generateSingleWord', async (req, res) => {
         const studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
         
         // 4. Formater les contributions pour correspondre EXACTEMENT aux balises du template
+        // ⚠️ IMPORTANT: Le template attend des clés PLATES comme 'criteriaA.sem1' et 'finalLevel.A'
         const formattedContributions = contributions.map(c => {
             const criteriaData = c.criteriaValues || {};
             
-            const formatCriteria = (criterion) => {
-                const data = criteriaData[criterion] || {};
-                return {
-                    sem1: data.sem1 || '',
-                    sem2: data.sem2 || '',
-                    finalLevel: data.finalLevel || ''
-                };
-            };
-            
             // Récupérer les noms des critères depuis la matière
             const subjectCriteria = criteriaBySubject[c.subjectSelected] || {};
+            
+            // Formater chaque critère A, B, C, D
+            const getCriteriaValue = (criterion, field) => {
+                return criteriaData[criterion]?.[field] || '';
+            };
             
             return {
                 // Balises principales
@@ -497,32 +494,33 @@ app.post('/api/generateSingleWord', async (req, res) => {
                 subject: c.subjectSelected || '',
                 teacherComment: c.teacherComment || c.comments || '',
                 
-                // Critères A, B, C, D avec leurs valeurs
+                // Noms des critères (avec espace dans la clé !)
                 'criteriaName A': subjectCriteria.A || 'Critère A',
                 'criteriaName B': subjectCriteria.B || 'Critère B',
                 'criteriaName C': subjectCriteria.C || 'Critère C',
                 'criteriaName D': subjectCriteria.D || 'Critère D',
                 
-                criteriaA: formatCriteria('A'),
-                criteriaB: formatCriteria('B'),
-                criteriaC: formatCriteria('C'),
-                criteriaD: formatCriteria('D'),
+                // Critères A, B, C, D - FORMAT PLAT pour correspondre au template
+                'criteriaA.sem1': getCriteriaValue('A', 'sem1'),
+                'criteriaA.sem2': getCriteriaValue('A', 'sem2'),
+                'criteriaB.sem1': getCriteriaValue('B', 'sem1'),
+                'criteriaB.sem2': getCriteriaValue('B', 'sem2'),
+                'criteriaC.sem1': getCriteriaValue('C', 'sem1'),
+                'criteriaC.sem2': getCriteriaValue('C', 'sem2'),
+                'criteriaD.sem1': getCriteriaValue('D', 'sem1'),
+                'criteriaD.sem2': getCriteriaValue('D', 'sem2'),
                 
-                // Clés des critères (A, B, C, D)
-                criteriaKey: {
-                    A: 'A',
-                    B: 'B',
-                    C: 'C',
-                    D: 'D'
-                },
+                // Niveaux finaux - FORMAT PLAT
+                'finalLevel.A': getCriteriaValue('A', 'finalLevel'),
+                'finalLevel.B': getCriteriaValue('B', 'finalLevel'),
+                'finalLevel.C': getCriteriaValue('C', 'finalLevel'),
+                'finalLevel.D': getCriteriaValue('D', 'finalLevel'),
                 
-                // Niveaux finaux
-                finalLevel: {
-                    A: formatCriteria('A').finalLevel,
-                    B: formatCriteria('B').finalLevel,
-                    C: formatCriteria('C').finalLevel,
-                    D: formatCriteria('D').finalLevel
-                },
+                // Clés des critères - FORMAT PLAT
+                'criteriaKey.A': 'A',
+                'criteriaKey.B': 'B',
+                'criteriaKey.C': 'C',
+                'criteriaKey.D': 'D',
                 
                 // ATL (Approches de l'apprentissage)
                 communication: c.atlScores?.communication || '',
