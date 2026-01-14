@@ -400,77 +400,66 @@ app.post('/api/generateClassZip', async (req, res) => {
                 console.log(`  📝 Génération sans photo (à ajouter manuellement)`);
                 const imageBuffer = TRANSPARENT_PIXEL;
 
-                // Formater les contributions pour le template
+                // Formater les contributions pour correspondre EXACTEMENT aux balises du template
                 const formattedContributions = contributions.map(c => {
-                    // Gérer les critères (A, B, C, D)
                     const criteriaData = c.criteriaValues || {};
-                    const unitsSem1Count = c.unitsSem1 || 1;
-                    const unitsSem2Count = c.unitsSem2 || 1;
                     
                     const formatCriteria = (criterion) => {
                         const data = criteriaData[criterion] || {};
-                        
-                        // Créer des tableaux d'unités avec la bonne taille
-                        const sem1Units = Array.isArray(data.sem1Units) 
-                            ? data.sem1Units 
-                            : [];
-                        const sem2Units = Array.isArray(data.sem2Units) 
-                            ? data.sem2Units 
-                            : [];
-                        
-                        // Remplir avec des chaînes vides si nécessaire
-                        while (sem1Units.length < unitsSem1Count) {
-                            sem1Units.push('');
-                        }
-                        while (sem2Units.length < unitsSem2Count) {
-                            sem2Units.push('');
-                        }
-                        
                         return {
                             sem1: data.sem1 || '',
                             sem2: data.sem2 || '',
-                            finalLevel: data.finalLevel || '',
-                            sem1Units: sem1Units,
-                            sem2Units: sem2Units
+                            finalLevel: data.finalLevel || ''
                         };
                     };
-
-                    // S'assurer que communicationEvaluation a toujours 5 éléments
-                    const commEval = Array.isArray(c.communicationEvaluation) 
-                        ? c.communicationEvaluation 
-                        : [];
-                    while (commEval.length < 5) {
-                        commEval.push('');
-                    }
-
+                    
+                    // Récupérer les noms des critères depuis la matière
+                    const subjectCriteria = criteriaBySubject[c.subjectSelected] || {};
+                    
                     return {
-                        teacherName: c.teacherName || 'N/A',
-                        subjectName: c.subjectName || 'N/A',
-                        approachToLearning: c.approachToLearning || 'N/A',
-                        comments: c.comments || '',
-                        teacherComment: c.teacherComment || '',
-                        globalContexts: Array.isArray(c.globalContexts) ? c.globalContexts : [],
+                        // Balises principales
+                        teacherName: c.teacherName || '',
+                        subjectSelected: c.subjectSelected || '',
+                        subject: c.subjectSelected || '',
+                        teacherComment: c.teacherComment || c.comments || '',
                         
-                        // Communication evaluation (tableau de 5 valeurs)
-                        communicationEvaluation: commEval,
+                        // Critères A, B, C, D avec leurs valeurs
+                        'criteriaName A': subjectCriteria.A || 'Critère A',
+                        'criteriaName B': subjectCriteria.B || 'Critère B',
+                        'criteriaName C': subjectCriteria.C || 'Critère C',
+                        'criteriaName D': subjectCriteria.D || 'Critère D',
                         
-                        // Nombre d'unités
-                        unitsSem1: unitsSem1Count,
-                        unitsSem2: unitsSem2Count,
-                        
-                        // Critères formatés
                         criteriaA: formatCriteria('A'),
                         criteriaB: formatCriteria('B'),
                         criteriaC: formatCriteria('C'),
                         criteriaD: formatCriteria('D'),
                         
-                        // Valeurs des critères (pour compatibilité)
-                        criteriaValues: {
-                            A: formatCriteria('A'),
-                            B: formatCriteria('B'),
-                            C: formatCriteria('C'),
-                            D: formatCriteria('D')
-                        }
+                        // Clés des critères (A, B, C, D)
+                        criteriaKey: {
+                            A: 'A',
+                            B: 'B',
+                            C: 'C',
+                            D: 'D'
+                        },
+                        
+                        // Niveaux finaux
+                        finalLevel: {
+                            A: formatCriteria('A').finalLevel,
+                            B: formatCriteria('B').finalLevel,
+                            C: formatCriteria('C').finalLevel,
+                            D: formatCriteria('D').finalLevel
+                        },
+                        
+                        // ATL (Approches de l'apprentissage)
+                        communication: c.atlScores?.communication || '',
+                        collaboration: c.atlScores?.collaboration || '',
+                        autogestion: c.atlScores?.autogestion || '',
+                        recherche: c.atlScores?.recherche || '',
+                        reflexion: c.atlScores?.reflexion || '',
+                        
+                        // Note et seuil
+                        note: c.finalGrade || '',
+                        seuil: c.threshold || ''
                     };
                 });
 
@@ -489,13 +478,26 @@ app.post('/api/generateClassZip', async (req, res) => {
 
                 try {
                     const renderData = {
-                        studentName: studentName || '',
-                        birthDate: studentInfo?.birthDate || 'N/A',
-                        // ⚠️ Images désactivées - à ajouter manuellement
-                        // image: imageBuffer,
-                        // studentPhoto: imageBuffer,
-                        // photo: imageBuffer,
-                        contributions: formattedContributions || []
+                        // Données élève
+                        studentSelected: studentName || '',
+                        studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || '',
+                        className: classSelected || '',
+                        
+                        // Image (vide car désactivée)
+                        image: '',
+                        
+                        // Liste des contributions (pour la boucle #contributionsBySubject)
+                        contributionsBySubject: formattedContributions || [],
+                        
+                        // Tableau ATL summary (si nécessaire)
+                        atlSummaryTable: (formattedContributions || []).map(c => ({
+                            subject: c.subjectSelected,
+                            communication: c.communication,
+                            collaboration: c.collaboration,
+                            autogestion: c.autogestion,
+                            recherche: c.recherche,
+                            reflexion: c.reflexion
+                        }))
                     };
                     
                     console.log(`  📝 Rendu avec ${formattedContributions.length} contributions (sans photo)`);
@@ -586,46 +588,66 @@ app.post('/api/generateSingleWord', async (req, res) => {
         // 3. Récupérer les infos de l'élève
         const studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
         
-        // 4. Formater les contributions
+        // 4. Formater les contributions pour correspondre EXACTEMENT aux balises du template
         const formattedContributions = contributions.map(c => {
             const criteriaData = c.criteriaValues || {};
-            const unitsSem1Count = c.unitsSem1 || 1;
-            const unitsSem2Count = c.unitsSem2 || 1;
             
             const formatCriteria = (criterion) => {
                 const data = criteriaData[criterion] || {};
-                const sem1Units = Array.isArray(data.sem1Units) ? data.sem1Units : [];
-                const sem2Units = Array.isArray(data.sem2Units) ? data.sem2Units : [];
-                
-                while (sem1Units.length < unitsSem1Count) sem1Units.push('');
-                while (sem2Units.length < unitsSem2Count) sem2Units.push('');
-                
                 return {
                     sem1: data.sem1 || '',
                     sem2: data.sem2 || '',
-                    finalLevel: data.finalLevel || '',
-                    sem1Units: sem1Units,
-                    sem2Units: sem2Units
+                    finalLevel: data.finalLevel || ''
                 };
             };
             
-            const commEval = Array.isArray(c.communicationEvaluation) ? c.communicationEvaluation : [];
-            while (commEval.length < 5) commEval.push('');
+            // Récupérer les noms des critères depuis la matière
+            const subjectCriteria = criteriaBySubject[c.subjectSelected] || {};
             
             return {
-                teacherName: c.teacherName || 'N/A',
-                subjectName: c.subjectName || 'N/A',
-                approachToLearning: c.approachToLearning || 'N/A',
-                comments: c.comments || '',
-                teacherComment: c.teacherComment || '',
-                globalContexts: Array.isArray(c.globalContexts) ? c.globalContexts : [],
-                communicationEvaluation: commEval,
-                unitsSem1: unitsSem1Count,
-                unitsSem2: unitsSem2Count,
+                // Balises principales
+                teacherName: c.teacherName || '',
+                subjectSelected: c.subjectSelected || '',
+                subject: c.subjectSelected || '',
+                teacherComment: c.teacherComment || c.comments || '',
+                
+                // Critères A, B, C, D avec leurs valeurs
+                'criteriaName A': subjectCriteria.A || 'Critère A',
+                'criteriaName B': subjectCriteria.B || 'Critère B',
+                'criteriaName C': subjectCriteria.C || 'Critère C',
+                'criteriaName D': subjectCriteria.D || 'Critère D',
+                
                 criteriaA: formatCriteria('A'),
                 criteriaB: formatCriteria('B'),
                 criteriaC: formatCriteria('C'),
-                criteriaD: formatCriteria('D')
+                criteriaD: formatCriteria('D'),
+                
+                // Clés des critères (A, B, C, D)
+                criteriaKey: {
+                    A: 'A',
+                    B: 'B',
+                    C: 'C',
+                    D: 'D'
+                },
+                
+                // Niveaux finaux
+                finalLevel: {
+                    A: formatCriteria('A').finalLevel,
+                    B: formatCriteria('B').finalLevel,
+                    C: formatCriteria('C').finalLevel,
+                    D: formatCriteria('D').finalLevel
+                },
+                
+                // ATL (Approches de l'apprentissage)
+                communication: c.atlScores?.communication || '',
+                collaboration: c.atlScores?.collaboration || '',
+                autogestion: c.atlScores?.autogestion || '',
+                recherche: c.atlScores?.recherche || '',
+                reflexion: c.atlScores?.reflexion || '',
+                
+                // Note et seuil
+                note: c.finalGrade || '',
+                seuil: c.threshold || ''
             };
         });
         
@@ -638,12 +660,36 @@ app.post('/api/generateSingleWord', async (req, res) => {
         });
         
         const renderData = {
-            studentName: studentSelected || '',
-            birthDate: studentInfo?.birthDate || 'N/A',
-            contributions: formattedContributions
+            // Données élève
+            studentSelected: studentSelected || '',
+            studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || '',
+            className: classSelected || '',
+            
+            // Image (vide car désactivée)
+            image: '',
+            
+            // Liste des contributions (pour la boucle #contributionsBySubject)
+            contributionsBySubject: formattedContributions,
+            
+            // Tableau ATL summary (si nécessaire)
+            atlSummaryTable: formattedContributions.map(c => ({
+                subject: c.subjectSelected,
+                communication: c.communication,
+                collaboration: c.collaboration,
+                autogestion: c.autogestion,
+                recherche: c.recherche,
+                reflexion: c.reflexion
+            }))
         };
         
         console.log(`📝 Rendu avec ${formattedContributions.length} contributions`);
+        console.log(`📊 Données envoyées:`, {
+            studentSelected: renderData.studentSelected,
+            studentBirthdate: renderData.studentBirthdate,
+            className: renderData.className,
+            contributionsCount: renderData.contributionsBySubject.length
+        });
+        
         doc.render(renderData);
         
         // 6. Générer le buffer final avec compression STORE
