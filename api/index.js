@@ -324,10 +324,49 @@ app.post('/api/deleteContribution', async (req, res) => {
     }
 });
 
-// Route principale de génération
+// NOUVEAU: Endpoint pour obtenir la liste des élèves d'une classe
+app.post('/api/getStudentsList', async (req, res) => {
+    try {
+        const { classSelected, sectionSelected } = req.body;
+        
+        console.log(`📋 Récupération liste élèves - Classe: ${classSelected}, Section: ${sectionSelected}`);
+        
+        if (!classSelected || !sectionSelected) {
+            return res.status(400).json({ 
+                error: 'Paramètres manquants',
+                details: 'classSelected et sectionSelected requis'
+            });
+        }
+        
+        await connectToMongo();
+        
+        // Récupérer la liste des élèves qui ont des contributions
+        const studentNames = await contributionsCollection.distinct('studentSelected', {
+            classSelected,
+            sectionSelected
+        });
+        
+        console.log(`✅ ${studentNames.length} élèves trouvés:`, studentNames);
+        
+        res.json({
+            success: true,
+            students: studentNames,
+            count: studentNames.length,
+            classSelected,
+            sectionSelected
+        });
+        
+    } catch (error) {
+        console.error('❌ Erreur getStudentsList:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Route principale de génération (OBSOLÈTE - garder pour compatibilité)
 app.post('/api/generateClassZip', async (req, res) => {
     const { classSelected, sectionSelected } = req.body;
-    console.log(`\n🚀 Début génération ZIP - Classe: ${classSelected}, Section: ${sectionSelected}`);
+    console.log(`\n⚠️ OBSOLÈTE: generateClassZip appelé - utilisez getStudentsList + generateSingleWord`);
+    console.log(`Classe: ${classSelected}, Section: ${sectionSelected}`);
     
     try {
         await connectToMongo();
@@ -343,205 +382,19 @@ app.post('/api/generateClassZip', async (req, res) => {
             return res.status(404).json({ error: 'Aucun élève trouvé' });
         }
 
-        const zip = archiver('zip', { zlib: { level: 5 } });
-        const safeSection = (sectionSelected || "section").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-        const zipName = `Livrets-${classSelected}-${safeSection}.zip`;
-
-        res.setHeader('Content-Type', 'application/zip');
-        res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
-        zip.pipe(res);
-
-        // FORCER L'UTILISATION DE GOOGLE DOCS (ignorer variables d'environnement)
-        // URL Google Docs du modèle Word
-        const GOOGLE_DOCS_TEMPLATE = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
-        const templateUrl = GOOGLE_DOCS_TEMPLATE;
+        // Renvoyer la liste au lieu de générer un ZIP
+        res.json({
+            success: true,
+            message: 'Utilisez /api/getStudentsList et téléchargez individuellement',
+            students: studentNames,
+            count: studentNames.length
+        });
         
-        console.log(`📄 TEMPLATE FORCÉ: Google Docs`);
-        console.log(`   URL: ${templateUrl}`);
-        console.log(`   Classe: ${classSelected}, Type: ${classSelected.startsWith('DP') ? 'DP' : 'PEI'}`);
-        console.log(`   Variables env ignorées (TEMPLATE_URL: ${process.env.TEMPLATE_URL ? 'existe mais ignorée' : 'non définie'})`);
-        console.log(`   Variables env ignorées (TEMPLATE_URL_DP: ${process.env.TEMPLATE_URL_DP ? 'existe mais ignorée' : 'non définie'})`);
-        
-        const templateResponse = await fetch(templateUrl);
-        
-        if (!templateResponse.ok) {
-            console.error(`❌ Erreur téléchargement template: ${templateResponse.status} ${templateResponse.statusText}`);
-            throw new Error(`Impossible de télécharger le template Google Docs: ${templateResponse.status}`);
-        }
-        
-        const templateBuffer = await templateResponse.buffer();
-        console.log(`✅ Template téléchargé: ${templateBuffer.length} bytes`);
-
-        let successCount = 0;
-        let errorCount = 0;
-
-        for (const studentName of studentNames) {
-            try {
-                console.log(`\n👤 Traitement de ${studentName}...`);
-                
-                const contributions = await contributionsCollection.find({
-                    studentSelected: studentName,
-                    classSelected,
-                    sectionSelected
-                }).toArray();
-
-                console.log(`  📚 ${contributions.length} contributions trouvées`);
-
-                if (!contributions || contributions.length === 0) {
-                    console.warn(`⚠️ Aucune contribution pour ${studentName}`);
-                    errorCount++;
-                    continue;
-                }
-
-                const studentInfo = await studentsCollection.findOne({ fullName: studentName });
-                
-                // ⚠️ PHOTOS DÉSACTIVÉES - Utilisation d'un pixel transparent pour éviter les erreurs
-                // Les photos devront être ajoutées manuellement dans les documents Word
-                console.log(`  📝 Génération sans photo (à ajouter manuellement)`);
-                const imageBuffer = TRANSPARENT_PIXEL;
-
-                // Formater les contributions pour correspondre EXACTEMENT aux balises du template
-                const formattedContributions = contributions.map(c => {
-                    const criteriaData = c.criteriaValues || {};
-                    
-                    const formatCriteria = (criterion) => {
-                        const data = criteriaData[criterion] || {};
-                        return {
-                            sem1: data.sem1 || '',
-                            sem2: data.sem2 || '',
-                            finalLevel: data.finalLevel || ''
-                        };
-                    };
-                    
-                    // Récupérer les noms des critères depuis la matière
-                    const subjectCriteria = criteriaBySubject[c.subjectSelected] || {};
-                    
-                    return {
-                        // Balises principales
-                        teacherName: c.teacherName || '',
-                        subjectSelected: c.subjectSelected || '',
-                        subject: c.subjectSelected || '',
-                        teacherComment: c.teacherComment || c.comments || '',
-                        
-                        // Critères A, B, C, D avec leurs valeurs
-                        'criteriaName A': subjectCriteria.A || 'Critère A',
-                        'criteriaName B': subjectCriteria.B || 'Critère B',
-                        'criteriaName C': subjectCriteria.C || 'Critère C',
-                        'criteriaName D': subjectCriteria.D || 'Critère D',
-                        
-                        criteriaA: formatCriteria('A'),
-                        criteriaB: formatCriteria('B'),
-                        criteriaC: formatCriteria('C'),
-                        criteriaD: formatCriteria('D'),
-                        
-                        // Clés des critères (A, B, C, D)
-                        criteriaKey: {
-                            A: 'A',
-                            B: 'B',
-                            C: 'C',
-                            D: 'D'
-                        },
-                        
-                        // Niveaux finaux
-                        finalLevel: {
-                            A: formatCriteria('A').finalLevel,
-                            B: formatCriteria('B').finalLevel,
-                            C: formatCriteria('C').finalLevel,
-                            D: formatCriteria('D').finalLevel
-                        },
-                        
-                        // ATL (Approches de l'apprentissage)
-                        communication: c.atlScores?.communication || '',
-                        collaboration: c.atlScores?.collaboration || '',
-                        autogestion: c.atlScores?.autogestion || '',
-                        recherche: c.atlScores?.recherche || '',
-                        reflexion: c.atlScores?.reflexion || '',
-                        
-                        // Note et seuil
-                        note: c.finalGrade || '',
-                        seuil: c.threshold || ''
-                    };
-                });
-
-                const zipContent = new PizZip(templateBuffer);
-                
-                // ⚠️ MODULE IMAGE DÉSACTIVÉ pour éviter les erreurs
-                // Les photos devront être ajoutées manuellement dans Word
-                const doc = new DocxTemplater(zipContent, {
-                    paragraphLoop: true,
-                    linebreaks: true,
-                    nullGetter: (part) => {
-                        // Retourner silencieusement une chaîne vide pour les propriétés manquantes
-                        return '';
-                    }
-                });
-
-                try {
-                    const renderData = {
-                        // Données élève
-                        studentSelected: studentName || '',
-                        studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || '',
-                        className: classSelected || '',
-                        
-                        // Image (vide car désactivée)
-                        image: '',
-                        
-                        // Liste des contributions (pour la boucle #contributionsBySubject)
-                        contributionsBySubject: formattedContributions || [],
-                        
-                        // Tableau ATL summary (si nécessaire)
-                        atlSummaryTable: (formattedContributions || []).map(c => ({
-                            subject: c.subjectSelected,
-                            communication: c.communication,
-                            collaboration: c.collaboration,
-                            autogestion: c.autogestion,
-                            recherche: c.recherche,
-                            reflexion: c.reflexion
-                        }))
-                    };
-                    
-                    console.log(`  📝 Rendu avec ${formattedContributions.length} contributions (sans photo)`);
-                    doc.render(renderData);
-                } catch (renderError) {
-                    console.error(`❌ Erreur de rendu pour ${studentName}:`, renderError);
-                    if (renderError.properties && renderError.properties.errors) {
-                        renderError.properties.errors.forEach(err => {
-                            console.error(`  - ${err.message}`, err);
-                        });
-                    }
-                    throw renderError;
-                }
-
-                const buf = doc.getZip().generate({ 
-                    type: 'nodebuffer',
-                    compression: 'STORE',
-                    compressionOptions: { level: 0 }
-                });
-                
-                // Ajouter le fichier dans le dossier "Dossier de fiches"
-                const filename = `Dossier de fiches/${studentName}.docx`;
-                zip.append(buf, { name: filename });
-                
-                console.log(`  📄 Fichier ajouté au ZIP: ${filename}`);
-                
-                successCount++;
-                console.log(`✅ Livret généré pour ${studentName}`);
-            } catch (studentError) {
-                errorCount++;
-                console.error(`❌ Erreur pour ${studentName}:`, studentError.message);
-                console.error('Stack:', studentError.stack);
-                // Continuer avec les autres élèves
-            }
-        }
-
-        await zip.finalize();
-        console.log(`\n🎉 Génération terminée: ${successCount} succès, ${errorCount} erreurs`);
     } catch (error) {
         console.error('❌ Error:', error);
-        if (!res.headersSent) res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message });
     }
 });
-
 // ENDPOINT MANQUANT: Génération d'un seul livret Word pour un élève
 app.post('/api/generateSingleWord', async (req, res) => {
     try {

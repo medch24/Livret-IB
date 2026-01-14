@@ -1440,26 +1440,16 @@ async function generateAllWordsInSection() {
         return;
     }
 
-    const studentList = studentsByClassAndSection[section]?.[classe] || [];
-    if (studentList.length === 0) {
-        alert(`Aucun élève trouvé pour la classe ${classe} dans la section ${section}.`);
-        return;
-    }
-
-    const confirmGeneration = confirm(`🎉 NOUVEAU: Vous allez générer UN SEUL FICHIER ZIP contenant les ${studentList.length} livret(s) Word pour la classe ${classe}.\n\n✅ Plus rapide\n✅ Plus fiable\n✅ Un seul téléchargement\n\nVoulez-vous continuer ?`);
-    if (!confirmGeneration) {
-        return;
-    }
-
     progressBarContainer.style.display = 'block';
-    progressText.textContent = `📦 Génération du ZIP en cours...`;
-    progressBar.style.width = '50%';
+    progressText.textContent = `📋 Récupération de la liste des élèves...`;
+    progressBar.style.width = '10%';
     document.getElementById('generateWordButton').disabled = true;
 
     try {
-        console.log(`📦 Appel API /api/generateClassZip pour ${classe} (${section})`);
+        console.log(`📋 Récupération liste élèves pour ${classe} (${section})`);
         
-        const response = await fetch('/api/generateClassZip', {
+        // 1. Récupérer la liste des élèves
+        const listResponse = await fetch('/api/getStudentsList', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1470,47 +1460,104 @@ async function generateAllWordsInSection() {
             })
         });
 
-        if (!response.ok) {
-            const errorDetails = await response.text();
-            let errorMessage = `Erreur ${response.status}: `;
+        if (!listResponse.ok) {
+            throw new Error(`Erreur récupération liste: ${listResponse.status}`);
+        }
+
+        const listData = await listResponse.json();
+        const students = listData.students || [];
+        
+        if (students.length === 0) {
+            alert(`Aucun élève trouvé pour la classe ${classe} dans la section ${section}.`);
+            progressBarContainer.style.display = 'none';
+            document.getElementById('generateWordButton').disabled = false;
+            return;
+        }
+
+        console.log(`✅ ${students.length} élèves trouvés:`, students);
+
+        const confirmGeneration = confirm(`📚 Génération de ${students.length} livret(s) Word\n\n✅ Téléchargement automatique un par un\n✅ Plus fiable (pas de ZIP)\n✅ Vous pouvez ouvrir chaque fichier immédiatement\n\nÉlèves: ${students.join(', ')}\n\nVoulez-vous continuer ?`);
+        if (!confirmGeneration) {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('generateWordButton').disabled = false;
+            return;
+        }
+
+        // 2. Télécharger chaque livret un par un
+        let successCount = 0;
+        let errorCount = 0;
+        const errors = [];
+
+        for (let i = 0; i < students.length; i++) {
+            const studentName = students[i];
+            const progress = Math.round(((i + 1) / students.length) * 100);
+            
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `📥 Téléchargement ${i + 1}/${students.length}: ${studentName}...`;
+            
+            console.log(`📥 Génération livret pour: ${studentName} (${i + 1}/${students.length})`);
+
             try {
-                const jsonError = JSON.parse(errorDetails);
-                errorMessage += jsonError.error || jsonError.details || errorDetails;
-            } catch(e) {
-                errorMessage += errorDetails;
+                // Générer le livret pour cet élève
+                const response = await fetch('/api/generateSingleWord', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        studentSelected: studentName,
+                        classSelected: classe,
+                        sectionSelected: section
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur ${response.status}`);
+                }
+
+                // Télécharger le fichier
+                const blob = await response.blob();
+                const filename = `Livret-${studentName.replace(/\s+/g, '_')}-${classe}.docx`;
+                
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                
+                // Petit délai pour éviter de bloquer le navigateur
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                successCount++;
+                console.log(`✅ Livret téléchargé: ${filename}`);
+
+            } catch (error) {
+                errorCount++;
+                errors.push(`${studentName}: ${error.message}`);
+                console.error(`❌ Erreur pour ${studentName}:`, error);
             }
-            throw new Error(errorMessage);
         }
 
-        // Télécharger le ZIP
-        const blob = await response.blob();
-        const contentDisposition = response.headers.get('Content-Disposition');
-        let filename = `Livrets-${classe}-${section}.zip`;
-        
-        if (contentDisposition) {
-            const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-            if (filenameMatch && filenameMatch[1]) {
-                filename = filenameMatch[1].replace(/['"]/g, '');
-            }
-        }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-
+        // Afficher le résumé
         progressBar.style.width = '100%';
-        progressText.textContent = `✅ ZIP téléchargé: ${filename} (${studentList.length} livrets)`;
+        progressText.textContent = `✅ Terminé: ${successCount} réussi(s), ${errorCount} erreur(s)`;
         
-        console.log(`✅ ZIP téléchargé avec succès: ${filename}`);
+        if (errorCount > 0) {
+            console.error('❌ Erreurs:', errors);
+            alert(`⚠️ Génération terminée avec des erreurs:\n\n✅ ${successCount} livrets téléchargés\n❌ ${errorCount} erreurs\n\nDétails dans la console (F12)`);
+        } else {
+            alert(`🎉 ${successCount} livret(s) Word téléchargé(s) avec succès!\n\nVérifiez vos téléchargements.`);
+        }
+
+        console.log(`🎉 Génération terminée: ${successCount} succès, ${errorCount} erreurs`);
 
     } catch (error) {
-        console.error('❌ Erreur génération ZIP:', error);
+        console.error('❌ Erreur génération:', error);
         progressBar.style.width = '100%';
         progressText.textContent = `❌ Erreur: ${error.message}`;
         alert(`Erreur lors de la génération du ZIP:\n${error.message}`);
