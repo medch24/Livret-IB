@@ -512,8 +512,17 @@ app.post('/api/generateClassZip', async (req, res) => {
                     throw renderError;
                 }
 
-                const buf = doc.getZip().generate({ type: 'nodebuffer' });
-                zip.append(buf, { name: `${studentName}.docx` });
+                const buf = doc.getZip().generate({ 
+                    type: 'nodebuffer',
+                    compression: 'STORE',
+                    compressionOptions: { level: 0 }
+                });
+                
+                // Ajouter le fichier dans le dossier "Dossier de fiches"
+                const filename = `Dossier de fiches/${studentName}.docx`;
+                zip.append(buf, { name: filename });
+                
+                console.log(`  📄 Fichier ajouté au ZIP: ${filename}`);
                 
                 successCount++;
                 console.log(`✅ Livret généré pour ${studentName}`);
