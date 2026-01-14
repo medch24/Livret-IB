@@ -341,11 +341,24 @@ app.post('/api/generateClassZip', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
         zip.pipe(res);
 
-        const templateUrl = classSelected.startsWith('DP') ? process.env.TEMPLATE_URL_DP : process.env.TEMPLATE_URL;
-        console.log(`📄 Téléchargement du template: ${templateUrl}`);
+        // Utiliser l'URL du template Google Docs
+        // Pour DP: https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx
+        const templateUrl = classSelected.startsWith('DP') 
+            ? (process.env.TEMPLATE_URL_DP || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx')
+            : (process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx');
+        
+        console.log(`📄 Téléchargement du template depuis: ${templateUrl}`);
+        console.log(`   Classe: ${classSelected}, Type: ${classSelected.startsWith('DP') ? 'DP' : 'PEI'}`);
+        
         const templateResponse = await fetch(templateUrl);
+        
+        if (!templateResponse.ok) {
+            console.error(`❌ Erreur téléchargement template: ${templateResponse.status} ${templateResponse.statusText}`);
+            throw new Error(`Impossible de télécharger le template: ${templateResponse.status}`);
+        }
+        
         const templateBuffer = await templateResponse.buffer();
-        console.log(`✅ Template téléchargé (${templateBuffer.length} bytes)`);
+        console.log(`✅ Template téléchargé: ${templateBuffer.length} bytes`);
 
         let successCount = 0;
         let errorCount = 0;
@@ -503,6 +516,144 @@ app.post('/api/generateClassZip', async (req, res) => {
     } catch (error) {
         console.error('❌ Error:', error);
         if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+});
+
+// ENDPOINT MANQUANT: Génération d'un seul livret Word pour un élève
+app.post('/api/generateSingleWord', async (req, res) => {
+    try {
+        const { studentSelected, classSelected, sectionSelected } = req.body;
+        
+        console.log(`\n📝 GÉNÉRATION LIVRET INDIVIDUEL`);
+        console.log(`   Élève: ${studentSelected}`);
+        console.log(`   Classe: ${classSelected}`);
+        console.log(`   Section: ${sectionSelected}`);
+        
+        if (!studentSelected || !classSelected || !sectionSelected) {
+            return res.status(400).json({ 
+                error: 'Paramètres manquants',
+                details: 'studentSelected, classSelected et sectionSelected sont requis'
+            });
+        }
+        
+        // 1. Télécharger le template depuis Google Docs
+        const templateUrl = classSelected.startsWith('DP') 
+            ? (process.env.TEMPLATE_URL_DP || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx')
+            : (process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx');
+        
+        console.log(`📄 Téléchargement template: ${templateUrl}`);
+        const templateResponse = await fetch(templateUrl);
+        
+        if (!templateResponse.ok) {
+            throw new Error(`Erreur téléchargement template: ${templateResponse.status}`);
+        }
+        
+        const templateBuffer = await templateResponse.buffer();
+        console.log(`✅ Template téléchargé: ${templateBuffer.length} bytes`);
+        
+        // 2. Récupérer les contributions de l'élève
+        const contributions = await contributionsCollection.find({
+            studentSelected,
+            classSelected,
+            sectionSelected
+        }).toArray();
+        
+        console.log(`📚 ${contributions.length} contributions trouvées`);
+        
+        if (!contributions || contributions.length === 0) {
+            return res.status(404).json({
+                error: 'Aucune contribution trouvée',
+                details: `Aucune contribution pour ${studentSelected} en ${classSelected} ${sectionSelected}`
+            });
+        }
+        
+        // 3. Récupérer les infos de l'élève
+        const studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
+        
+        // 4. Formater les contributions
+        const formattedContributions = contributions.map(c => {
+            const criteriaData = c.criteriaValues || {};
+            const unitsSem1Count = c.unitsSem1 || 1;
+            const unitsSem2Count = c.unitsSem2 || 1;
+            
+            const formatCriteria = (criterion) => {
+                const data = criteriaData[criterion] || {};
+                const sem1Units = Array.isArray(data.sem1Units) ? data.sem1Units : [];
+                const sem2Units = Array.isArray(data.sem2Units) ? data.sem2Units : [];
+                
+                while (sem1Units.length < unitsSem1Count) sem1Units.push('');
+                while (sem2Units.length < unitsSem2Count) sem2Units.push('');
+                
+                return {
+                    sem1: data.sem1 || '',
+                    sem2: data.sem2 || '',
+                    finalLevel: data.finalLevel || '',
+                    sem1Units: sem1Units,
+                    sem2Units: sem2Units
+                };
+            };
+            
+            const commEval = Array.isArray(c.communicationEvaluation) ? c.communicationEvaluation : [];
+            while (commEval.length < 5) commEval.push('');
+            
+            return {
+                teacherName: c.teacherName || 'N/A',
+                subjectName: c.subjectName || 'N/A',
+                approachToLearning: c.approachToLearning || 'N/A',
+                comments: c.comments || '',
+                teacherComment: c.teacherComment || '',
+                globalContexts: Array.isArray(c.globalContexts) ? c.globalContexts : [],
+                communicationEvaluation: commEval,
+                unitsSem1: unitsSem1Count,
+                unitsSem2: unitsSem2Count,
+                criteriaA: formatCriteria('A'),
+                criteriaB: formatCriteria('B'),
+                criteriaC: formatCriteria('C'),
+                criteriaD: formatCriteria('D')
+            };
+        });
+        
+        // 5. Générer le document Word
+        const zip = new PizZip(templateBuffer);
+        const doc = new DocxTemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => ''
+        });
+        
+        const renderData = {
+            studentName: studentSelected || '',
+            birthDate: studentInfo?.birthDate || 'N/A',
+            contributions: formattedContributions
+        };
+        
+        console.log(`📝 Rendu avec ${formattedContributions.length} contributions`);
+        doc.render(renderData);
+        
+        // 6. Générer le buffer final avec compression STORE
+        const buffer = doc.getZip().generate({
+            type: 'nodebuffer',
+            compression: 'STORE',
+            compressionOptions: { level: 0 }
+        });
+        
+        console.log(`✅ Document généré: ${buffer.length} bytes`);
+        
+        // 7. Envoyer le fichier
+        const filename = `Livret-${studentSelected.replace(/\s+/g, '_')}-${classSelected}.docx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        res.send(buffer);
+        
+        console.log(`🎉 Livret envoyé: ${filename}`);
+        
+    } catch (error) {
+        console.error('❌ ERREUR generateSingleWord:', error.message);
+        console.error('Stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Erreur génération livret',
+            details: error.message 
+        });
     }
 });
 
