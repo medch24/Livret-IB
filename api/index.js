@@ -29,6 +29,30 @@ console.log('⚠️  IMPORTANT: Variables TEMPLATE_URL et TEMPLATE_URL_DP sont I
 console.log('⚠️  Le code utilise TOUJOURS Google Docs, peu importe les variables Vercel');
 console.log('=========================================\n');
 
+// Définition des critères par matière (pour mapping des noms de critères)
+const criteriaBySubject = {
+    // Matières PEI
+    "Acquisition de langues (Anglais)": {A:"Listening",B:"Reading",C:"Speaking",D:"Writing"},
+    "Acquisition de langue (اللغة العربية)": {A:"أ الاستماع",B:"ب القراءة",C:"ج التحدث",D:"د الكتابة"},
+    "Langue et littérature (Français)": {A:"Analyse",B:"Organisation",C:"Production de texte",D:"Utilisation de la langue"},
+    "Individus et sociétés": {A:"Connaissances et compréhension",B:"Recherche",C:"Communication",D:"Pensée critique"},
+    "Sciences": {A:"Connaissances et compréhension",B:"Recherche et élaboration",C:"Traitement et évaluation",D:"Réflexion sur les répercussions"},
+    "Mathématiques": {A:"Connaissances et compréhension",B:"Recherche de modèles",C:"Communication",D:"Application des mathématiques"},
+    "Arts": {A:"Connaissances et compréhension",B:"Développement des compétences",C:"Pensée créative",D:"Réaction"},
+    "Éducation physique et à la santé": {A:"Connaissances et compréhension",B:"Planification",C:"Application et exécution",D:"Réflexion et amélioration"},
+    "Design": {A:"Recherche et analyse",B:"Développement des idées",C:"Création de la solution",D:"Évaluation"},
+    // Matières DP
+    "Langue et Littérature (Français NM)": {AO1:"Connaissances et compréhension",AO2:"Application des compétences",AO3:"Communication",AO4:"Maîtrise de la langue"},
+    "Langue Anglaise (NM)": {AO1:"Communication",AO2:"Compréhension",AO3:"Maîtrise de la langue",AO4:"Sensibilité interculturelle"},
+    "Géographie (NM)": {AO1:"Connaissances",AO2:"Application et analyse",AO3:"Synthèse et évaluation",AO4:"Présentation"},
+    "Mathématiques AA (NS)": {AO1:"Connaissances",AO2:"Modélisation",AO3:"Communication",AO4:"Utilisation technologie"},
+    "Biologie (NS)": {AO1:"Connaissances",AO2:"Application",AO3:"Formulation et évaluation",AO4:"Techniques expérimentales"},
+    "Physique (NS)": {AO1:"Connaissances",AO2:"Application",AO3:"Formulation et évaluation",AO4:"Techniques expérimentales"},
+    "Théorie de la Connaissance (TdC)": {AO1:"Réflexion",AO2:"Exploration",AO3:"Lien situations réelles"},
+    "Mémoire (EE)": {AO1:"Question de Recherche",AO2:"Recherche indépendante",AO3:"Argumentation",AO4:"Réflexion"},
+    "CAS": {AO1:"7 Résultats d'Apprentissage",AO2:"Réflexion",AO3:"Projet CAS"}
+};
+
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
