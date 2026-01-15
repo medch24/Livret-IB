@@ -374,13 +374,49 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
     // Utiliser le nom complet pour le document Word
     const fullName = getFullStudentName(studentName);
     
+    // CORRECTION: Si pas de contributions, créer des tableaux avec données vides
+    // pour éviter l'erreur DocxTemplater sur boucles vides dans tableaux Word
     if (!originalContributions || originalContributions.length === 0) {
         return {
             studentSelected: fullName,
             className: className || "",
             studentBirthdate: studentBirthdate ? new Date(studentBirthdate).toLocaleDateString('fr-FR') : "",
-            atlSummaryTable: [],
-            contributionsBySubject: []
+            // Au lieu de tableaux vides, créer une entrée avec des tirets
+            atlSummaryTable: [{
+                subject: "-",
+                communication: "-",
+                collaboration: "-",
+                autogestion: "-",
+                recherche: "-",
+                reflexion: "-"
+            }],
+            contributionsBySubject: [{
+                subjectSelected: "-",
+                teacherName: "-",
+                teacherComment: "-",
+                "criteriaKey.A": "A",
+                "criteriaName A": "-",
+                "criteriaA.sem1": "-",
+                "criteriaA.sem2": "-",
+                "finalLevel.A": "-",
+                "criteriaKey.B": "B",
+                "criteriaName B": "-",
+                "criteriaB.sem1": "-",
+                "criteriaB.sem2": "-",
+                "finalLevel.B": "-",
+                "criteriaKey.C": "C",
+                "criteriaName C": "-",
+                "criteriaC.sem1": "-",
+                "criteriaC.sem2": "-",
+                "finalLevel.C": "-",
+                "criteriaKey.D": "D",
+                "criteriaName D": "-",
+                "criteriaD.sem1": "-",
+                "criteriaD.sem2": "-",
+                "finalLevel.D": "-",
+                "seuil": "-",
+                "note": "-"
+            }]
         };
     }
     
