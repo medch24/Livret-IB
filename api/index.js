@@ -517,41 +517,17 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         // Le module ImageModule doit TOUJOURS être présent, même sans image
         // Pour éviter l'erreur, on configure le module pour gérer les images vides
         
-        const imageOpts = {
-            centered: false,
-            getImage: function(tagValue) {
-                // Si pas d'image (chaîne vide ou null), retourner un buffer vide de 1x1 pixel transparent
-                if (!tagValue || tagValue === "" || (typeof tagValue === 'string' && tagValue.length === 0)) {
-                    // Créer une image PNG 1x1 transparente
-                    const transparentPng = Buffer.from(
-                        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-                        'base64'
-                    );
-                    return transparentPng;
-                }
-                return tagValue;
-            },
-            getSize: function(img, tagValue, tagName) {
-                // Si pas d'image réelle, taille 1x1 (invisible)
-                if (!tagValue || tagValue === "" || (typeof tagValue === 'string' && tagValue.length === 0)) {
-                    return [1, 1];
-                }
-                // Sinon, taille 60x60 (optimisée pour ne pas prendre trop d'espace)
-                return [60, 60];
-            }
-        };
+        // SOLUTION DÉFINITIVE: Ne jamais utiliser le module ImageModule
+        // car il corrompt le fichier Word même avec des images valides
+        // À la place, on remplace {image} par un texte placeholder
         
         let docTemplaterOptions = {
             paragraphLoop: true,
             linebreaks: true,
             nullGetter: (part) => {
-                // Pour les balises non-image, retourner une chaîne vide
-                if (part.module === 'rawxml') {
-                    return '';
-                }
+                // Retourner une chaîne vide pour toutes les valeurs nulles
                 return '';
-            },
-            modules: [new ImageModule(imageOpts)]
+            }
         };
         
         const doc = new DocxTemplater(zip, docTemplaterOptions);
@@ -559,23 +535,17 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
         console.log(`🔄 Preparing Word data for ${studentName}...`);
         const documentData = prepareWordData(studentName, className, studentBirthdate, originalContributions);
         
-        // CORRECTION: N'inclure l'image que si elle existe
+        // SOLUTION DÉFINITIVE: Remplacer {image} par un placeholder texte
+        // car ImageModule corrompt le fichier Word
         const dataToRender = {
-            ...documentData
+            ...documentData,
+            image: imageBuffer && imageBuffer.length > 0 ? '[PHOTO]' : '[PAS DE PHOTO]'
         };
         
-        // CORRECTION: Toujours inclure la balise image (buffer ou chaîne vide)
-        // Le module ImageModule va gérer les deux cas
-        if (imageBuffer && imageBuffer.length > 0) {
-            dataToRender.image = imageBuffer;
-            console.log(`✅ Image included in data: ${imageBuffer.length} bytes`);
-        } else {
-            // Chaîne vide sera convertie en image 1x1 transparente par getImage()
-            dataToRender.image = "";
-            console.log(`⚠️ No image, will use transparent 1x1 pixel`);
-        }
+        console.log(`📷 Image status: ${dataToRender.image}`);
         
-        console.log(`🔄 Rendering Word document for ${studentName}... Data keys: ${Object.keys(dataToRender).length}`);
+        console.log(`🔄 Rendering Word document for ${studentName}...`);
+        console.log(`   Data keys: ${Object.keys(dataToRender).join(', ')}`);
         doc.render(dataToRender);
         console.log(`✅ Document rendered successfully`);
         
