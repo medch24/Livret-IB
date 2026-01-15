@@ -1,17 +1,17 @@
 /**
- * Script de gestion du Livret Scolaire
- * Version corrigée pour intégration Vercel + MongoDB
+ * SYSTÈME DE GESTION DES LIVRETS SCOLAIRES - SCRIPT COMPLET
+ * Version : 2.1 (Optimisée pour Vercel & MongoDB)
  */
 
-// Variables d'état globales
+// 1. ÉTAT GLOBAL DE L'APPLICATION
 let currentData = {
     contributionId: null,
     teacherName: localStorage.getItem('teacherName') || '',
     classSelected: null,
     sectionSelected: null,
     subjectSelected: null,
-    studentSelected: null,
-    studentBirthdate: null,
+    studentSelected: null, // Deviendra le Nom Complet
+    studentBirthdate: '',
     teacherComment: '',
     communicationEvaluation: ['', '', '', '', ''],
     unitsSem1: 1,
@@ -21,19 +21,58 @@ let currentData = {
         B: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
         C: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
         D: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] }
-    }
+    },
+    threshold: 0,
+    finalNote: 0
 };
 
-let currentContributionId = null;
+// 2. BASE DE DONNÉES ÉLÈVES (Mapping Prénom -> Nom Complet)
+const studentDatabase = {
+    // Garçons
+    "Bilal": { fullName: "Bilal Molina", birth: "2015-02-15" },
+    "Faysal": { fullName: "Faysal Achar", birth: "2014-04-15" },
+    "Jad": { fullName: "Jad Mahayni", birth: "2014-08-15" },
+    "Manaf": { fullName: "Manaf Kotbi", birth: "2014-08-15" },
+    "Ahmed": { fullName: "Ahmed Bouaziz", birth: "2013-09-15" },
+    "Yasser": { fullName: "Yasser Younes", birth: "2013-08-15" },
+    "Eyad": { fullName: "Eyad Hassan", birth: "2013-04-15" },
+    "Ali": { fullName: "Ali Kutbi", birth: "2013-04-15" },
+    "Seifeddine": { fullName: "Seifeddine Ayadi", birth: "2012-01-15" },
+    "Mohamed Chalak": { fullName: "Mohamed Chalak", birth: "2011-11-15" },
+    "Wajih": { fullName: "Wajih Sabadine", birth: "2012-06-15" },
+    "Ahmad": { fullName: "Ahmad Mahayni", birth: "2012-02-15" },
+    "Adam": { fullName: "Adam Kaaki", birth: "2012-12-15" },
+    "Mohamed Younes": { fullName: "Mohamed Younes", birth: "2011-11-15" },
+    "Mohamed Amine Sgheir": { fullName: "Mohamed Amine Sgheir", birth: "2012-12-15" },
+    "Samir": { fullName: "Samir Kaaki", birth: "2012-12-15" },
+    "Abdulrahman": { fullName: "Abdulrahman Bouaziz", birth: "2012-04-15" },
+    "Youssef": { fullName: "Youssef Baakak", birth: "2011-11-15" },
+    "Habib": { fullName: "Habib Lteif", birth: "2008-10-15" },
+    "Salah": { fullName: "Salah Boumalouga", birth: "2008-07-15" },
+    // Filles
+    "Naya Sabbidine": { fullName: "Naya Sabbidine", birth: "2014-02-28" },
+    "Israa Alkattan": { fullName: "Israa Alkattan", birth: "2013-09-19" },
+    "Dina Tlili": { fullName: "Dina Tlili", birth: "2012-12-22" },
+    "Lina Tlili": { fullName: "Lina Tlili", birth: "2012-12-22" },
+    "Cynthia Fadlallah": { fullName: "Cynthia Fadlallah", birth: "2013-12-06" },
+    "Neyla Molina": { fullName: "Neyla Molina", birth: "2014-01-13" },
+    "Jawahair Eshmawi": { fullName: "Jawahair Eshmawi", birth: "2012-03-19" },
+    "Yousr Letaief": { fullName: "Yousr Letaief", birth: "2011-06-14" },
+    "Sarah Aldebasy": { fullName: "Sarah Aldebasy", birth: "2011-07-24" },
+    "Maria Wahib": { fullName: "Maria Wahib", birth: "2011-07-16" },
+    "Badia Khaldi": { fullName: "Badia Khaldi", birth: "2010-12-23" },
+    "Luluwah Alghabashi": { fullName: "Luluwah Alghabashi", birth: "2010-04-29" },
+    "Yomna Masrouhi": { fullName: "Yomna Masrouhi", birth: "2009-09-07" },
+    "Isra Elalmi": { fullName: "Isra Elalmi", birth: "2008-03-25" }
+};
 
-// --- CONFIGURATION DONNÉES ÉLÈVES ---
 const studentsByClassAndSection = {
     garçons: {
-        PEI1: ["Bilal Molina", "Faysal Achar", "Jad Mahayni", "Manaf Kotbi"],
-        PEI2: ["Ahmed Bouaziz", "Ali Kutbi", "Eyad Hassan", "Yasser Younes"],
-        PEI3: ["Adam Kaaki", "Ahmad Mahayni", "Mohamed Chalak", "Seifeddine Ayadi", "Wajih Sabadine"],
-        PEI4: ["Abdulrahman Bouaziz", "Mohamed Amine Sgheir", "Mohamed Younes", "Samir Kaaki", "Youssef Baakak"],
-        DP2: ["Habib Lteif", "Salah Boumalouga"]
+        PEI1: ["Bilal", "Faysal", "Jad", "Manaf"],
+        PEI2: ["Ahmed", "Ali", "Eyad", "Yasser"],
+        PEI3: ["Adam", "Ahmad", "Mohamed Chalak", "Seifeddine", "Wajih"],
+        PEI4: ["Abdulrahman", "Mohamed Amine Sgheir", "Mohamed Younes", "Samir", "Youssef"],
+        DP2: ["Habib", "Salah"]
     },
     filles: {
         PEI1: ["Naya Sabbidine"],
@@ -46,276 +85,209 @@ const studentsByClassAndSection = {
     }
 };
 
-const subjectsByClass = {
-    PEI1: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI2: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI3: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI4: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    PEI5: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    DP1: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"],
-    DP2: ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"]
-};
+const subjectsByClass = ["Mathématiques", "Individus et sociétés", "Langue et littérature (Français)", "Design", "Sciences", "Arts", "Éducation physique et à la santé", "Acquisition de langues (Anglais)", "Acquisition de langue (اللغة العربية)"];
 
-// --- UTILITAIRES API ---
-
+// 3. FONCTIONS API
 async function apiCall(endpoint, data) {
     const response = await fetch(`/api/${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     });
-    if (!response.ok) throw new Error(`Erreur API: ${response.status}`);
+    if (!response.ok) throw new Error("Erreur Serveur");
     return await response.json();
 }
 
-// --- GESTION DES ÉVÉNEMENTS UI ---
-
+// 4. GESTION DE L'INTERFACE (UI)
 function handleSectionChange(section) {
     currentData.sectionSelected = section;
     document.getElementById('step0').style.display = 'none';
     document.getElementById('step1').style.display = 'block';
     
-    // Populate classes
-    const classSelector = document.getElementById('classSelector');
-    classSelector.innerHTML = '<option value="">-- Sélectionnez une Classe --</option>';
-    Object.keys(studentsByClassAndSection[section]).forEach(cls => {
+    const clsSelector = document.getElementById('classSelector');
+    clsSelector.innerHTML = '<option value="">-- Choisissez --</option>';
+    Object.keys(studentsByClassAndSection[section]).forEach(c => {
         const opt = document.createElement('option');
-        opt.value = cls; opt.textContent = cls;
-        classSelector.appendChild(opt);
+        opt.value = opt.textContent = c;
+        clsSelector.appendChild(opt);
     });
 }
 
 function handleClassChange(cls) {
     currentData.classSelected = cls;
-    if (!cls) return;
-    document.getElementById('step3').style.display = 'block';
-    const studentSelector = document.getElementById('studentSelector');
-    studentSelector.innerHTML = '<option value="">-- Sélectionnez un élève --</option>';
+    const stdSelector = document.getElementById('studentSelector');
+    stdSelector.innerHTML = '<option value="">-- Sélectionnez l\'élève --</option>';
     
-    const students = studentsByClassAndSection[currentData.sectionSelected][cls] || [];
-    students.forEach(st => {
+    const list = studentsByClassAndSection[currentData.sectionSelected][cls] || [];
+    list.forEach(s => {
         const opt = document.createElement('option');
-        opt.value = st; opt.textContent = st;
-        studentSelector.appendChild(opt);
+        opt.value = s;
+        opt.textContent = studentDatabase[s]?.fullName || s;
+        stdSelector.appendChild(opt);
     });
+    document.getElementById('step3').style.display = 'block';
 }
 
-async function handleStudentChange(student) {
-    currentData.studentSelected = student;
-    if (!student) return;
+async function handleStudentChange(shortName) {
+    if(!shortName) return;
+    const info = studentDatabase[shortName] || { fullName: shortName, birth: "" };
+    
+    // On stocke le NOM COMPLET pour la DB et le WORD
+    currentData.studentSelected = info.fullName; 
     
     document.getElementById('studentInfoContainer').style.display = 'block';
-    document.getElementById('studentNameDisplay').textContent = student;
-    document.getElementById('step2').style.display = 'block';
+    document.getElementById('studentNameDisplay').textContent = info.fullName;
+    document.getElementById('studentBirthdate').value = info.birth;
+    currentData.studentBirthdate = info.birth;
     
-    // Charger infos élève (date de naissance)
-    const info = await apiCall('fetchStudentInfo', { studentSelected: student });
-    document.getElementById('studentBirthdate').value = info.birthDate || '';
-    currentData.studentBirthdate = info.birthDate || '';
-
-    // Populate Subjects
-    const subjectSelector = document.getElementById('subjectSelector');
-    subjectSelector.innerHTML = '<option value="">-- Sélectionnez une matière --</option>';
-    subjectsByClass[currentData.classSelected].forEach(sub => {
+    const subSelector = document.getElementById('subjectSelector');
+    subSelector.innerHTML = '<option value="">-- Matière --</option>';
+    subjectsByClass.forEach(s => {
         const opt = document.createElement('option');
-        opt.value = sub; opt.textContent = sub;
-        subjectSelector.appendChild(opt);
+        opt.value = opt.textContent = s;
+        subSelector.appendChild(opt);
     });
+    document.getElementById('step2').style.display = 'block';
 }
 
-function handleSubjectChange(subject) {
-    currentData.subjectSelected = subject;
-    if (!subject) return;
-
-    const isArabic = subject.includes('العربية');
+function handleSubjectChange(sub) {
+    currentData.subjectSelected = sub;
+    const isAr = sub.includes('العربية');
     document.getElementById('contributionEntrySections').style.display = 'block';
-    
-    // Toggle sections Langue
-    document.querySelectorAll('.french-section').forEach(s => s.style.display = isArabic ? 'none' : 'block');
-    document.querySelectorAll('.arabic-section').forEach(s => s.style.display = isArabic ? 'block' : 'none');
-
+    document.querySelectorAll('.french-section').forEach(s => s.style.display = isAr ? 'none' : 'block');
+    document.querySelectorAll('.arabic-section').forEach(s => s.style.display = isAr ? 'block' : 'none');
     rebuildCriteriaTable();
 }
 
-// --- LOGIQUE DE CALCUL ET TABLEAU ---
-
+// 5. MOTEUR DE CALCULS
 function handleUnitsChange() {
-    const isArabic = currentData.subjectSelected?.includes('العربية');
-    currentData.unitsSem1 = parseInt(document.getElementById(isArabic ? 'unitsSem1SelectorArabic' : 'unitsSem1Selector').value);
-    currentData.unitsSem2 = parseInt(document.getElementById(isArabic ? 'unitsSem2SelectorArabic' : 'unitsSem2Selector').value);
+    const isAr = currentData.subjectSelected?.includes('العربية');
+    currentData.unitsSem1 = parseInt(document.getElementById(isAr ? 'unitsSem1SelectorArabic' : 'unitsSem1Selector').value);
+    currentData.unitsSem2 = parseInt(document.getElementById(isAr ? 'unitsSem2SelectorArabic' : 'unitsSem2Selector').value);
     rebuildCriteriaTable();
 }
 
 function rebuildCriteriaTable() {
-    const isArabic = currentData.subjectSelected?.includes('العربية');
+    const isAr = currentData.subjectSelected?.includes('العربية');
     const isDP = currentData.classSelected?.startsWith('DP');
-    const maxVal = isDP ? 7 : 8;
-    const tbody = document.getElementById(isArabic ? 'criteriaTableBodyArabic' : 'criteriaTableBody');
-    const thead = document.getElementById(isArabic ? 'criteriaTableHeadArabic' : 'criteriaTableHead');
+    const max = isDP ? 7 : 8;
+    const tbody = document.getElementById(isAr ? 'criteriaTableBodyArabic' : 'criteriaTableBody');
+    const thead = document.getElementById(isAr ? 'criteriaTableHeadArabic' : 'criteriaTableHead');
     
-    // Reconstruction dynamique du header (selon nombre d'unités)
-    let headerRow = `<tr><th>${isArabic ? 'المعايير' : 'Critères'}</th>`;
-    for(let i=1; i<=currentData.unitsSem1; i++) headerRow += `<th>S1-U${i}</th>`;
-    if(currentData.unitsSem1 > 1) headerRow += `<th style="background:#e7f3ff">Moy S1</th>`;
-    for(let i=1; i<=currentData.unitsSem2; i++) headerRow += `<th>S2-U${i}</th>`;
-    if(currentData.unitsSem2 > 1) headerRow += `<th style="background:#e7f3ff">Moy S2</th>`;
-    headerRow += `<th>Final /${maxVal}</th><th>Seuil /${maxVal*4}</th><th>Note /${maxVal}</th></tr>`;
-    thead.innerHTML = headerRow;
+    // Header
+    let h = `<tr><th>Critères</th>`;
+    for(let i=1; i<=currentData.unitsSem1; i++) h += `<th>S1-U${i}</th>`;
+    if(currentData.unitsSem1 > 1) h += `<th>Moy S1</th>`;
+    for(let i=1; i<=currentData.unitsSem2; i++) h += `<th>S2-U${i}</th>`;
+    if(currentData.unitsSem2 > 1) h += `<th>Moy S2</th>`;
+    h += `<th>Final</th><th>Seuil</th><th>Note</th></tr>`;
+    thead.innerHTML = h;
 
-    // Reconstruction du body
-    const criteria = ['A', 'B', 'C', 'D'];
+    // Body
     tbody.innerHTML = '';
-    criteria.forEach((letter, index) => {
+    ['A','B','C','D'].forEach((l, idx) => {
         const tr = document.createElement('tr');
-        tr.dataset.criteria = letter;
-        let html = `<td>${letter}</td>`;
-        
-        // Inputs Semestre 1
-        for(let i=0; i<currentData.unitsSem1; i++) {
-            const val = currentData.criteriaValues[letter].sem1Units[i] || '';
-            html += `<td><input type="number" min="0" max="${maxVal}" value="${val}" oninput="updateValues(this, 'sem1', ${i})"></td>`;
+        tr.dataset.criteria = l;
+        let b = `<td>${l}</td>`;
+        for(let i=0; i<currentData.unitsSem1; i++) b += `<td><input type="number" min="0" max="${max}" oninput="updateVal(this,'s1',${i})"></td>`;
+        if(currentData.unitsSem1 > 1) b += `<td><input type="number" readonly class="m-s1"></td>`;
+        for(let i=0; i<currentData.unitsSem2; i++) b += `<td><input type="number" min="0" max="${max}" oninput="updateVal(this,'s2',${i})"></td>`;
+        if(currentData.unitsSem2 > 1) b += `<td><input type="number" readonly class="m-s2"></td>`;
+        b += `<td><input type="number" readonly class="f-l"></td>`;
+        if(idx === 0) {
+            b += `<td rowspan="4"><input type="number" readonly id="${isAr?'thresholdArabic':'threshold'}"></td>`;
+            b += `<td rowspan="4"><input type="number" readonly id="${isAr?'finalNoteArabic':'finalNote'}"></td>`;
         }
-        if(currentData.unitsSem1 > 1) html += `<td class="bg-light"><input type="number" readonly class="moy-s1"></td>`;
-
-        // Inputs Semestre 2
-        for(let i=0; i<currentData.unitsSem2; i++) {
-            const val = currentData.criteriaValues[letter].sem2Units[i] || '';
-            html += `<td><input type="number" min="0" max="${maxVal}" value="${val}" oninput="updateValues(this, 'sem2', ${i})"></td>`;
-        }
-        if(currentData.unitsSem2 > 1) html += `<td class="bg-light"><input type="number" readonly class="moy-s2"></td>`;
-
-        // Final + Seuil/Note globale
-        html += `<td><input type="number" readonly class="final-level"></td>`;
-        if(index === 0) {
-            html += `<td rowspan="4"><input type="number" readonly id="${isArabic ? 'thresholdArabic' : 'threshold'}" style="background:#eee"></td>`;
-            html += `<td rowspan="4"><input type="number" readonly id="${isArabic ? 'finalNoteArabic' : 'finalNote'}" style="background:#eee"></td>`;
-        }
-        tr.innerHTML = html;
+        tr.innerHTML = b;
         tbody.appendChild(tr);
     });
-    calculateAll();
 }
 
-function updateValues(input, sem, index) {
-    const letter = input.closest('tr').dataset.criteria;
-    const val = input.value === '' ? null : parseFloat(input.value);
-    
-    if (sem === 'sem1') currentData.criteriaValues[letter].sem1Units[index] = val;
-    else currentData.criteriaValues[letter].sem2Units[index] = val;
-    
-    calculateAll();
+function updateVal(input, sem, idx) {
+    const l = input.closest('tr').dataset.criteria;
+    const v = input.value === '' ? null : parseFloat(input.value);
+    if(sem === 's1') currentData.criteriaValues[l].sem1Units[idx] = v;
+    else currentData.criteriaValues[l].sem2Units[idx] = v;
+    calculate();
 }
 
-function calculateAll() {
-    let totalSeuil = 0;
-    const criteria = ['A', 'B', 'C', 'D'];
-    
-    criteria.forEach(letter => {
-        const row = document.querySelector(`tr[data-criteria="${letter}"]`);
-        if(!row) return;
-
-        // Moyenne S1
-        const s1Units = currentData.criteriaValues[letter].sem1Units.filter(v => v !== null && v !== undefined);
-        const moyS1 = s1Units.length ? Math.round(s1Units.reduce((a,b)=>a+b, 0) / s1Units.length) : null;
-        currentData.criteriaValues[letter].sem1 = moyS1;
-        const moyS1Input = row.querySelector('.moy-s1');
-        if(moyS1Input) moyS1Input.value = moyS1 ?? '';
-
-        // Moyenne S2
-        const s2Units = currentData.criteriaValues[letter].sem2Units.filter(v => v !== null && v !== undefined);
-        const moyS2 = s2Units.length ? Math.round(s2Units.reduce((a,b)=>a+b, 0) / s2Units.length) : null;
-        currentData.criteriaValues[letter].sem2 = moyS2;
-        const moyS2Input = row.querySelector('.moy-s2');
-        if(moyS2Input) moyS2Input.value = moyS2 ?? '';
-
-        // Niveau Final (Moyenne des deux semestres)
-        let final = null;
-        if(moyS1 !== null && moyS2 !== null) final = Math.round((moyS1 + moyS2) / 2);
-        else if(moyS1 !== null) final = moyS1;
-        else if(moyS2 !== null) final = moyS2;
+function calculate() {
+    let total = 0;
+    ['A','B','C','D'].forEach(l => {
+        const row = document.querySelector(`tr[data-criteria="${l}"]`);
+        const s1 = currentData.criteriaValues[l].sem1Units.filter(x => x != null);
+        const s2 = currentData.criteriaValues[l].sem2Units.filter(x => x != null);
         
-        currentData.criteriaValues[letter].finalLevel = final;
-        row.querySelector('.final-level').value = final ?? '';
-        if(final !== null) totalSeuil += final;
+        const m1 = s1.length ? Math.round(s1.reduce((a,b)=>a+b)/s1.length) : null;
+        const m2 = s2.length ? Math.round(s2.reduce((a,b)=>a+b)/s2.length) : null;
+        
+        currentData.criteriaValues[l].sem1 = m1;
+        currentData.criteriaValues[l].sem2 = m2;
+        
+        const moy1In = row.querySelector('.m-s1'); if(moy1In) moy1In.value = m1 ?? '';
+        const moy2In = row.querySelector('.m-s2'); if(moy2In) moy2In.value = m2 ?? '';
+
+        let fin = (m1 !== null && m2 !== null) ? Math.round((m1+m2)/2) : (m1 ?? m2);
+        currentData.criteriaValues[l].finalLevel = fin;
+        row.querySelector('.f-l').value = fin ?? '';
+        if(fin != null) total += fin;
     });
 
-    const isArabic = currentData.subjectSelected?.includes('العربية');
-    const seuilInput = document.getElementById(isArabic ? 'thresholdArabic' : 'threshold');
-    const noteInput = document.getElementById(isArabic ? 'finalNoteArabic' : 'finalNote');
-    
-    if(seuilInput) seuilInput.value = totalSeuil;
-    const finalNote = Math.round(totalSeuil / 4);
-    if(noteInput) noteInput.value = totalSeuil > 0 ? (finalNote || 1) : '';
-    
-    currentData.finalNote = finalNote;
-    currentData.threshold = totalSeuil;
+    const isAr = currentData.subjectSelected?.includes('العربية');
+    document.getElementById(isAr?'thresholdArabic':'threshold').value = total;
+    const note = Math.round(total/4);
+    document.getElementById(isAr?'finalNoteArabic':'finalNote').value = total > 0 ? (note || 1) : '';
+    currentData.threshold = total;
+    currentData.finalNote = note;
 }
 
-// --- PERSISTENCE ET GÉNÉRATION ---
-
-function handleCommunicationChange() {
-    const isArabic = currentData.subjectSelected?.includes('العربية');
-    const selector = isArabic ? "#communicationTableArabic select" : "#communicationTable select";
-    currentData.communicationEvaluation = Array.from(document.querySelectorAll(selector)).map(s => s.value);
-}
-
+// 6. SOUMISSION ET GÉNÉRATION
 async function submitForm() {
-    handleCommunicationChange();
-    currentData.teacherName = document.getElementById(currentData.subjectSelected?.includes('العربية') ? 'teacherNameArabic' : 'teacherName').value;
-    currentData.teacherComment = document.getElementById(currentData.subjectSelected?.includes('العربية') ? 'teacherCommentArabic' : 'teacherComment').value;
-    currentData.studentBirthdate = document.getElementById('studentBirthdate').value;
+    const isAr = currentData.subjectSelected?.includes('العربية');
+    currentData.teacherName = document.getElementById(isAr?'teacherNameArabic':'teacherName').value;
+    currentData.teacherComment = document.getElementById(isAr?'teacherCommentArabic':'teacherComment').value;
+    currentData.communicationEvaluation = Array.from(document.querySelectorAll(isAr?'#communicationTableArabic select':'#communicationTable select')).map(s => s.value);
     
     localStorage.setItem('teacherName', currentData.teacherName);
-
-    try {
-        const res = await apiCall('saveContribution', currentData);
-        if(res.success) alert("✅ Contribution enregistrée avec succès !");
-    } catch(e) { alert("❌ Erreur: " + e.message); }
+    const res = await apiCall('saveContribution', currentData);
+    if(res.success) alert("✅ Enregistré !");
 }
 
 async function generateAllWordsInSection() {
     const { sectionSelected, classSelected } = currentData;
-    if(!sectionSelected || !classSelected) return alert("Sélectionnez une section et une classe !");
+    if(!sectionSelected || !classSelected) return alert("Sélectionnez d'abord !");
+    
+    const res = await apiCall('getStudentsList', { sectionSelected, classSelected });
+    const students = res.students || [];
 
+    document.getElementById('progressContainer').style.display = 'block';
     const bar = document.getElementById('progressBar');
-    const cont = document.getElementById('progressContainer');
-    cont.style.display = 'block';
 
-    try {
-        const { students } = await apiCall('getStudentsList', { sectionSelected, classSelected });
-        if(!students.length) return alert("Aucun élève trouvé.");
-
-        for(let i=0; i < students.length; i++){
-            const name = students[i];
-            bar.style.width = `${((i+1)/students.length)*100}%`;
-            
-            const response = await fetch('/api/generateSingleWord', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentSelected: name, classSelected, sectionSelected })
-            });
-
-            if(response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `Livret_${name}.docx`;
-                document.body.appendChild(a); a.click();
-                window.URL.revokeObjectURL(url);
-            }
-            await new Promise(r => setTimeout(r, 800)); // Délai pour éviter blocage navigateur
+    for(let i=0; i<students.length; i++) {
+        bar.style.width = `${((i+1)/students.length)*100}%`;
+        const r = await fetch('/api/generateSingleWord', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentSelected: students[i], classSelected, sectionSelected })
+        });
+        if(r.ok) {
+            const blob = await r.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `Livret_${students[i].replace(/ /g,'_')}.docx`;
+            a.click();
         }
-        alert("🎉 Tous les livrets ont été téléchargés !");
-    } catch(e) { alert("Erreur: " + e.message); }
-    cont.style.display = 'none';
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    alert("🎉 Terminé !");
+    document.getElementById('progressContainer').style.display = 'none';
 }
 
-// Initialisation
+// 7. INITIALISATION
 document.addEventListener('DOMContentLoaded', () => {
-    if(currentData.teacherName) {
-        const tn = document.getElementById('teacherName');
-        const tna = document.getElementById('teacherNameArabic');
-        if(tn) tn.value = currentData.teacherName;
-        if(tna) tna.value = currentData.teacherName;
+    const n = localStorage.getItem('teacherName');
+    if(n) {
+        if(document.getElementById('teacherName')) document.getElementById('teacherName').value = n;
+        if(document.getElementById('teacherNameArabic')) document.getElementById('teacherNameArabic').value = n;
     }
 });
