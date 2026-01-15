@@ -468,8 +468,25 @@ app.post('/api/generateSingleWord', async (req, res) => {
         
         // 3. Récupérer les infos de l'élève
         const studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
+        console.log(`👤 Infos élève:`, {
+            found: !!studentInfo,
+            fullName: studentInfo?.fullName || studentSelected,
+            birthDate: studentInfo?.birthDate,
+            photoUrl: studentInfo?.studentPhotoUrl ? 'OUI' : 'NON'
+        });
         
-        // 4. Formater les contributions pour correspondre EXACTEMENT aux balises du template
+        // 4. Charger l'image de l'élève si disponible
+        let imageBuffer = null;
+        if (studentInfo?.studentPhotoUrl) {
+            console.log(`🖼️ Chargement image élève: ${studentInfo.studentPhotoUrl}`);
+            imageBuffer = await fetchImage(studentInfo.studentPhotoUrl);
+            console.log(`✅ Image chargée: ${imageBuffer ? imageBuffer.length : 0} bytes`);
+        } else {
+            console.log(`⚠️ Aucune photo pour l'élève ${studentSelected}`);
+            imageBuffer = TRANSPARENT_PIXEL;
+        }
+        
+        // 5. Formater les contributions pour correspondre EXACTEMENT aux balises du template
         // ⚠️ IMPORTANT: Le template attend des clés PLATES comme 'criteriaA.sem1' et 'finalLevel.A'
         const formattedContributions = contributions.map(c => {
             const criteriaData = c.criteriaValues || {};
@@ -530,22 +547,37 @@ app.post('/api/generateSingleWord', async (req, res) => {
             };
         });
         
-        // 5. Générer le document Word
+        // 6. Configurer le module d'image avec imageBuffer
+        const imageOpts = {
+            centered: true,
+            fileType: "docx",
+            getImage: function() {
+                return imageBuffer;
+            },
+            getSize: function() {
+                return [180, 180]; // Taille fixe 180x180 pixels
+            }
+        };
+        
+        const imageModule = new ImageModule(imageOpts);
+        
+        // 7. Générer le document Word avec le module d'image
         const zip = new PizZip(templateBuffer);
         const doc = new DocxTemplater(zip, {
             paragraphLoop: true,
             linebreaks: true,
-            nullGetter: () => ''
+            nullGetter: () => '',
+            modules: [imageModule]
         });
         
         const renderData = {
-            // Données élève
+            // Données élève - NOM COMPLET
             studentSelected: studentSelected || '',
             studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || '',
             className: classSelected || '',
             
-            // Image (vide car désactivée)
-            image: '',
+            // Image de l'élève (avec module d'image)
+            image: 'image.png',
             
             // Liste des contributions (pour la boucle #contributionsBySubject)
             contributionsBySubject: formattedContributions,
@@ -566,12 +598,13 @@ app.post('/api/generateSingleWord', async (req, res) => {
             studentSelected: renderData.studentSelected,
             studentBirthdate: renderData.studentBirthdate,
             className: renderData.className,
+            hasImage: !!imageBuffer && imageBuffer !== TRANSPARENT_PIXEL,
             contributionsCount: renderData.contributionsBySubject.length
         });
         
         doc.render(renderData);
         
-        // 6. Générer le buffer final avec compression STORE
+        // 8. Générer le buffer final avec compression STORE
         const buffer = doc.getZip().generate({
             type: 'nodebuffer',
             compression: 'STORE',
@@ -580,7 +613,7 @@ app.post('/api/generateSingleWord', async (req, res) => {
         
         console.log(`✅ Document généré: ${buffer.length} bytes`);
         
-        // 7. Envoyer le fichier
+        // 9. Envoyer le fichier
         const filename = `Livret-${studentSelected.replace(/\s+/g, '_')}-${classSelected}.docx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
