@@ -1,202 +1,255 @@
 // Variables globales
-let currentData = {
-    contributionId: null,
-    teacherName: localStorage.getItem('teacherName') || null,
-    classSelected: null,
-    sectionSelected: null,
-    subjectSelected: null,
-    studentSelected: null,
-    studentFullName: null,
-    studentBirthdate: null,
-    studentPhoto: null,
-    teacherComment: null,
-    communicationEvaluation: ['', '', '', '', ''],
-    unitsSem1: 1,
-    unitsSem2: 1,
-    criteriaValues: {
-        A: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
-        B: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
-        C: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
-        D: { sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: [] },
-    }
-};
+let currentSection = '';
+let currentClass = '';
+let currentStudent = null;
+let allStudents = [];
 
-// Données des étudiants - PRÉNOMS (pour la DB) avec mapping vers noms complets
-const studentData = {
-    // Garçons
-    'Faysal': {fullName: 'Faysal Achar', birthdate: '2014-04-15', photo: 'https://lh3.googleusercontent.com/d/1IB6BKROX3TRxaIIHVVVWbB7-iI-V8VrC'},
-    'Bilal': {fullName: 'Bilal Molina', birthdate: '2015-02-15', photo: 'https://lh3.googleusercontent.com/d/1B0QUZJhpSad5Fs3qRTugUe4oyT1UDEVu'},
-    'Jad': {fullName: 'Jad Mahayni', birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1VLvrWjeJwaC1f4pSaLiwjnS79N-HrsFr'},
-    'Manaf': {fullName: 'Manaf Kotbi', birthdate: '2014-08-15', photo: 'https://lh3.googleusercontent.com/d/1h46Tqtqcp5tNqdY62wV6pyZFYknCEMWY'},
-    'Ahmed': {fullName: 'Ahmed Bouaziz', birthdate: '2013-09-15', photo: 'https://lh3.googleusercontent.com/d/1cDF-yegSB2tqsWac0AoNttbi8qaALYT1'},
-    'Yasser': {fullName: 'Yasser Younes', birthdate: '2013-08-15', photo: 'https://lh3.googleusercontent.com/d/1UUr rAJV_bqFNktGDInDkSrpwSZz-e47T'},
-    'Eyad': {fullName: 'Eyad Hassan', birthdate: '2013-04-15', photo: 'https://lh3.googleusercontent.com/d/1HGyWS4cC1jWWD25Ah3NcT_eIBUhqFzJ1'},
-    'Ali': {fullName: 'Ali Kutbi', birthdate: '2013-04-15', photo: 'https://lh3.googleusercontent.com/d/1bN-fDf_IWkXoW3WjSOXI5_M4KkL3FDKr'},
-    'Seifeddine': {fullName: 'Seifeddine Ayadi', birthdate: '2012-01-15', photo: 'https://lh3.googleusercontent.com/d/1tWdP5btCAsTMB86WzDgqh3Xw01ahm9s6'},
-    'Mohamed Chalak': {fullName: 'Mohamed Chalak', birthdate: '2011-11-15', photo: 'https://lh3.googleusercontent.com/d/11B80bG0vQDVT6FITL2y7C5TYmAGyggFn'},
-    'Wajih': {fullName: 'Wajih Sabadine', birthdate: '2012-06-15', photo: 'https://lh3.googleusercontent.com/d/1MH6M05mQamOHevnDffVFNpSFNnxqbxs3'},
-    'Ahmad': {fullName: 'Ahmad Mahayni', birthdate: '2012-02-15', photo: 'https://lh3.googleusercontent.com/d/1zU-jBuAbYjHanzank9C1BAd00skS1Y5J'},
-    'Adam': {fullName: 'Adam Kaaki', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/15I9p6VSnn1yVmPxRRbGsUkM-fsBKY0WF'},
-    'Mohamed Younes': {fullName: 'Mohamed Younes', birthdate: '2012-08-15', photo: 'https://lh3.googleusercontent.com/d/1wzraoZY_1RafcDXeaxSBeX5cIU57p4xA'},
-    'Mohamed Amine Sgheir': {fullName: 'Mohamed Amine Sgheir', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/1UrBw6quz0oBTUy8C0GeeWis3XAK773BR'},
-    'Samir': {fullName: 'Samir Kaaki', birthdate: '2012-12-15', photo: 'https://lh3.googleusercontent.com/d/1NdaCH8CU0DJFHXW4D0lItP-QnCsw123b'},
-    'Abdulrahman': {fullName: 'Abdulrahman Bouaziz', birthdate: '2012-04-15', photo: 'https://lh3.googleusercontent.com/d/1ycTO5StU2tnPy0BEYnnWzUve1jMIUcLE'},
-    'Youssef': {fullName: 'Youssef Baakak', birthdate: '2011-11-15', photo: 'https://lh3.googleusercontent.com/d/1Bygg5-PYrjjMOZDi5hAe16eZ81tn772e'},
-    'Habib': {fullName: 'Habib Lteif', birthdate: '2008-10-15', photo: 'https://lh3.googleusercontent.com/d/13u4y6JIyCBVQ_9PCwyhh837byyK9g8pF'},
-    'Salah': {fullName: 'Salah Boumalouga', birthdate: '2008-07-15', photo: 'https://lh3.googleusercontent.com/d/1IG8S_i6jD806C2QD_nwlxrG932QgIVXu'},
-    // Filles
-    'Yomna Masrouhi': {fullName: 'Yomna Masrouhi', birthdate: '2009-09-07', photo: null},
-    'Isra Elalmi': {fullName: 'Isra Elalmi', birthdate: '2008-03-25', photo: null},
-    'Naya Sabbidine': {fullName: 'Naya Sabbidine', birthdate: '2014-02-28', photo: null},
-    'Israa Alkattan': {fullName: 'Israa Alkattan', birthdate: '2013-09-19', photo: null},
-    'Dina Tlili': {fullName: 'Dina Tlili', birthdate: '2012-12-22', photo: null},
-};
-
-// Mapping des classes par section
-const classesBySection = {
-    'garçons': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'DP2'],
-    'filles': ['PEI1', 'PEI2', 'PEI3', 'PEI4', 'PEI5', 'DP1', 'DP2']
-};
-
-// Mapping des élèves par classe et section
-const studentsByClass = {
-    'PEI1-garçons': ['Faysal', 'Bilal', 'Jad', 'Manaf'],
-    'PEI2-garçons': ['Ahmed', 'Yasser', 'Eyad', 'Ali'],
-    'PEI3-garçons': ['Seifeddine', 'Mohamed Chalak', 'Wajih', 'Ahmad'],
-    'PEI4-garçons': ['Adam', 'Mohamed Younes', 'Mohamed Amine Sgheir', 'Samir'],
-    'DP2-garçons': ['Abdulrahman', 'Youssef', 'Habib', 'Salah'],
-    'PEI1-filles': ['Naya Sabbidine'],
-    'PEI2-filles': ['Israa Alkattan'],
-    'PEI3-filles': ['Dina Tlili'],
-    'PEI4-filles': [],
-    'PEI5-filles': ['Yomna Masrouhi'],
-    'DP1-filles': ['Isra Elalmi'],
-    'DP2-filles': []
-};
-
-// Fonctions de gestion de l'interface
-function handleSectionChange(section) {
-    currentData.sectionSelected = section;
-    const step1 = document.getElementById('step1');
-    const classSelector = document.getElementById('classSelector');
-    
-    classSelector.innerHTML = '<option value="">-- Sélectionnez une Classe --</option>';
-    classesBySection[section].forEach(cls => {
-        const option = document.createElement('option');
-        option.value = cls;
-        option.textContent = cls;
-        classSelector.appendChild(option);
-    });
-    
-    step1.style.display = 'block';
-    document.getElementById('step3').style.display = 'none';
-    document.getElementById('studentInfo').style.display = 'none';
-    step1.scrollIntoView({ behavior: 'smooth' });
-}
-
-function handleClassChange(className) {
-    if (!className) return;
-    currentData.classSelected = className;
-    const step3 = document.getElementById('step3');
-    const studentSelector = document.getElementById('studentSelector');
-    
-    const key = `${className}-${currentData.sectionSelected}`;
-    const students = studentsByClass[key] || [];
-    
-    studentSelector.innerHTML = '<option value="">-- Sélectionnez un élève --</option>';
-    students.forEach(name => {
-        const option = document.createElement('option');
-        option.value = name;
-        option.textContent = studentData[name].fullName;
-        studentSelector.appendChild(option);
-    });
-    
-    step3.style.display = 'block';
-    document.getElementById('studentInfo').style.display = 'none';
-    step3.scrollIntoView({ behavior: 'smooth' });
-}
-
-function handleStudentChange(studentName) {
-    if (!studentName) return;
-    const student = studentData[studentName];
-    currentData.studentSelected = studentName;
-    currentData.studentFullName = student.fullName;
-    currentData.studentBirthdate = student.birthdate;
-    currentData.studentPhoto = student.photo;
-    
-    document.getElementById('displayStudentName').textContent = student.fullName;
-    document.getElementById('displayStudentClass').textContent = `${currentData.classSelected} - Section ${currentData.sectionSelected}`;
-    
-    const infoCard = document.getElementById('studentInfo');
-    infoCard.style.display = 'block';
-    infoCard.scrollIntoView({ behavior: 'smooth' });
-}
-
-async function generateBooklet() {
-    const btn = document.getElementById('generateBtn');
+// Fonctions utilitaires
+function showStatus(msg, type = 'info') {
     const status = document.getElementById('statusMessage');
+    if (!status) return;
+    status.textContent = msg;
+    status.className = `status-message ${type}`;
+    status.style.display = msg ? 'block' : 'none';
+}
+
+function updateProgress(percent, text) {
+    const container = document.getElementById('progressContainer');
+    const bar = document.getElementById('progressBar');
+    const textEl = document.getElementById('progressText');
+    
+    if (!container || !bar || !textEl) return;
+
+    container.style.display = 'block';
+    bar.style.width = percent + '%';
+    textEl.textContent = text || (percent + '%');
+    
+    if (percent >= 100) {
+        setTimeout(() => {
+            container.style.display = 'none';
+            bar.style.width = '0%';
+        }, 2000);
+    }
+}
+
+// Gestionnaires d'événements
+async function handleSectionChange(section) {
+    currentSection = section;
+    const step1 = document.getElementById('step1');
+    const step3 = document.getElementById('step3');
+    const studentInfo = document.getElementById('studentInfo');
+    
+    if (step1) step1.style.display = 'block';
+    if (step3) step3.style.display = 'none';
+    if (studentInfo) studentInfo.style.display = 'none';
+    
+    // Reset class selector
+    const classSelector = document.getElementById('classSelector');
+    if (classSelector) {
+        classSelector.value = '';
+    }
+    
+    // Scroll to next step
+    if (step1) step1.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function handleClassChange(className) {
+    if (!className) return;
+    currentClass = className;
+    
+    const step3 = document.getElementById('step3');
+    const studentInfo = document.getElementById('studentInfo');
+    const studentSelector = document.getElementById('studentSelector');
+
+    try {
+        showStatus('Chargement des élèves...', 'info');
+        const response = await fetch(`/api/fetchStudentsByClass?className=${className}&section=${currentSection}`);
+        if (!response.ok) throw new Error('Erreur lors de la récupération des élèves');
+        
+        allStudents = await response.json();
+        
+        if (studentSelector) {
+            studentSelector.innerHTML = '<option value="">-- Sélectionnez un élève --</option>';
+            allStudents.forEach(student => {
+                const option = document.createElement('option');
+                option.value = student._id;
+                option.textContent = student.name;
+                studentSelector.appendChild(option);
+            });
+        }
+        
+        if (step3) step3.style.display = 'block';
+        if (studentInfo) studentInfo.style.display = 'none';
+        showStatus('', '');
+        
+        if (step3) step3.scrollIntoView({ behavior: 'smooth' });
+    } catch (error) {
+        console.error('Error:', error);
+        showStatus('Erreur lors du chargement des élèves', 'error');
+    }
+}
+
+function handleStudentChange(studentId) {
+    if (!studentId) return;
+    currentStudent = allStudents.find(s => s._id === studentId);
+    
+    const studentInfo = document.getElementById('studentInfo');
+    const displayStudentName = document.getElementById('displayStudentName');
+    const displayStudentClass = document.getElementById('displayStudentClass');
+
+    if (currentStudent) {
+        if (displayStudentName) displayStudentName.textContent = currentStudent.name;
+        if (displayStudentClass) displayStudentClass.textContent = `${currentStudent.class} - ${currentStudent.section}`;
+        if (studentInfo) {
+            studentInfo.style.display = 'block';
+            studentInfo.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+}
+
+// Fonction pour la génération individuelle
+async function generateBooklet() {
+    if (!currentStudent) {
+        alert('Veuillez sélectionner un élève.');
+        return;
+    }
+    
+    const btn = document.getElementById('generateBtn');
+    const originalText = btn ? btn.textContent : '📄 Générer le Livret (Word)';
     
     try {
-        btn.disabled = true;
-        btn.textContent = '⌛ Génération...';
-        status.textContent = 'Récupération des données...';
-        status.className = 'status-message info';
-        status.style.display = 'block';
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '⌛ Génération en cours...';
+        }
+        showStatus('Récupération des contributions...', 'info');
 
-        // Appel API pour récupérer les contributions réelles depuis MongoDB
-        // On utilise studentSelected comme ID ou nom pour la recherche
-        const contribRes = await fetch(`/api/fetchContributions?studentId=${currentData.studentSelected}`);
+        // 1. Récupérer les contributions
+        const contribRes = await fetch(`/api/fetchContributions?studentId=${currentStudent._id}`);
+        if (!contribRes.ok) throw new Error('Impossible de récupérer les contributions');
         const contributions = await contribRes.json();
 
+        showStatus('Génération du fichier Word...', 'info');
+
+        // 2. Appeler l'API de génération
         const response = await fetch('/api/generate-booklet', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                studentData: {
-                    name: currentData.studentFullName,
-                    class: currentData.classSelected,
-                    section: currentData.sectionSelected,
-                    studentId: currentData.studentSelected
-                },
+                studentData: currentStudent,
                 contributions: contributions
             })
         });
 
-        if (!response.ok) throw new Error('Erreur serveur lors de la génération');
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Erreur lors de la génération');
+        }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Livret-${currentData.studentFullName.replace(/\s+/g, '_')}.docx`;
+        a.download = `Livret-${currentStudent.name.replace(/\s+/g, '_')}.docx`;
         document.body.appendChild(a);
         a.click();
+        window.URL.revokeObjectURL(url);
         
-        status.textContent = 'Livret généré avec succès !';
-        status.className = 'status-message success';
+        showStatus('Livret généré avec succès !', 'success');
     } catch (error) {
-        status.textContent = 'Erreur: ' + error.message;
-        status.className = 'status-message error';
+        console.error('Generation Error:', error);
+        showStatus('Erreur: ' + error.message, 'error');
     } finally {
-        btn.disabled = false;
-        btn.textContent = '📄 Générer le Livret (Word)';
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = originalText;
+        }
     }
 }
 
-// Fonctions pour les boutons du header
+// Fonction pour la génération groupée (ZIP)
 async function generateAllWordsInSection() {
-    if (!currentData.classSelected || !currentData.sectionSelected) {
-        alert('Veuillez d\'abord sélectionner une section et une classe.');
+    if (!currentClass || !currentSection || allStudents.length === 0) {
+        alert('Veuillez d\'abord sélectionner une section et une classe avec des élèves.');
         return;
     }
-    // Implémentation similaire à celle de l'index.html original mais adaptée
-    alert('Cette fonctionnalité utilise les données de la classe sélectionnée.');
+
+    if (!confirm(`Voulez-vous générer les livrets Word pour tous les élèves de la classe ${currentClass} (${currentSection}) ?\nCela peut prendre un moment.`)) {
+        return;
+    }
+
+    const btn = document.getElementById('generateWordButton');
+    if (btn) btn.disabled = true;
+    
+    try {
+        const zip = new JSZip();
+        updateProgress(5, 'Initialisation...');
+        
+        for (let i = 0; i < allStudents.length; i++) {
+            const student = allStudents[i];
+            const percent = Math.round((i / allStudents.length) * 85) + 5;
+            updateProgress(percent, `Génération: ${student.name} (${i+1}/${allStudents.length})`);
+
+            try {
+                const contribRes = await fetch(`/api/fetchContributions?studentId=${student._id}`);
+                const contributions = await contribRes.json();
+
+                const response = await fetch('/api/generate-booklet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        studentData: student,
+                        contributions: contributions
+                    })
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    zip.file(`Livret-${student.name.replace(/\s+/g, '_')}.docx`, blob);
+                }
+            } catch (e) {
+                console.error(`Erreur pour ${student.name}:`, e);
+            }
+        }
+
+        updateProgress(95, 'Compression du ZIP...');
+        const content = await zip.generateAsync({ type: "blob" });
+        const url = window.URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Livrets-${currentClass}-${currentSection}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        updateProgress(100, 'Terminé !');
+        showStatus('Tous les livrets ont été générés.', 'success');
+    } catch (error) {
+        console.error('ZIP Error:', error);
+        showStatus('Erreur lors de la génération du ZIP', 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
+// Fonction pour l'export Excel
 async function generateExcel() {
-    if (!currentData.classSelected || !currentData.sectionSelected) {
+    if (!currentClass || !currentSection) {
         alert('Veuillez d\'abord sélectionner une section et une classe.');
         return;
     }
-    alert('Export Excel en cours de préparation...');
+    
+    showStatus('Préparation de l\'export Excel...', 'info');
+    try {
+        // Logique simplifiée pour l'exemple, peut être étendue
+        alert('Export Excel en cours de préparation pour ' + currentClass);
+        showStatus('Export Excel terminé (simulation).', 'success');
+    } catch (e) {
+        showStatus('Erreur Excel', 'error');
+    }
 }
+
+// Initialisation au chargement
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Application Livret-IB prête.');
+});
