@@ -243,17 +243,41 @@ function calculateFinalNote(totalLevel, maxNote = 8) {
 
 async function fetchImage(url) {
     try {
-        console.log(`📷 Fetching image: ${url.substring(0, 50)}...`);
+        // Convertir les URLs Google Drive au format téléchargeable
+        let downloadUrl = url;
+        if (url.includes('googleusercontent.com/d/')) {
+            // Format: https://lh3.googleusercontent.com/d/FILE_ID
+            // On garde l'URL telle quelle, mais on force le téléchargement avec des headers
+            downloadUrl = url;
+            console.log(`📷 Google Drive image détectée`);
+        } else if (url.includes('drive.google.com/file/d/')) {
+            // Format alternatif: https://drive.google.com/file/d/FILE_ID/view
+            const fileId = url.match(/\/d\/([^\/]+)/)?.[1];
+            if (fileId) {
+                downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+                console.log(`📷 URL Google Drive convertie pour téléchargement`);
+            }
+        }
         
-        // Timeout de 5 secondes pour éviter blocage
+        console.log(`📷 Fetching image: ${downloadUrl.substring(0, 60)}...`);
+        
+        // Timeout de 10 secondes pour les images Google Drive (peuvent être lentes)
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         
-        const response = await fetch(url, { signal: controller.signal });
+        // Ajouter des headers pour forcer le téléchargement
+        const response = await fetch(downloadUrl, { 
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            },
+            redirect: 'follow'
+        });
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-            console.warn(`⚠️ Image fetch failed: ${response.status}`);
+            console.warn(`⚠️ Image fetch failed: ${response.status} ${response.statusText}`);
             return null;
         }
         
@@ -263,34 +287,44 @@ async function fetchImage(url) {
         // Vérifier que c'est bien une image (magic bytes)
         const isPNG = originalBuffer[0] === 0x89 && originalBuffer[1] === 0x50;
         const isJPG = originalBuffer[0] === 0xFF && originalBuffer[1] === 0xD8;
+        const isWebP = originalBuffer[8] === 0x57 && originalBuffer[9] === 0x45 && originalBuffer[10] === 0x42 && originalBuffer[11] === 0x50;
         
-        if (!isPNG && !isJPG) {
-            console.warn(`⚠️ Format d'image invalide, ignorée`);
+        if (!isPNG && !isJPG && !isWebP) {
+            console.warn(`⚠️ Format d'image invalide (premiers bytes: ${originalBuffer.slice(0, 4).toString('hex')})`);
             return null;
         }
         
+        console.log(`📐 Redimensionnement et compression de l'image...`);
+        
         // SOLUTION DÉFINITIVE: Redimensionner et compresser l'image avec Sharp
-        // Taille fixe: 80x80 pixels en JPEG qualité 80%
+        // Taille: 60x60 pixels en JPEG qualité 75% pour un fichier plus léger
         const resizedBuffer = await sharp(originalBuffer)
-            .resize(80, 80, {
+            .resize(60, 60, {
                 fit: 'cover',
                 position: 'center'
             })
-            .jpeg({ quality: 80 })
+            .jpeg({ 
+                quality: 75,
+                mozjpeg: true  // Utiliser mozjpeg pour une meilleure compression
+            })
             .toBuffer();
         
-        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (80x80px)`);
+        console.log(`✅ Image redimensionnée: ${originalBuffer.length} → ${resizedBuffer.length} bytes (60x60px, JPEG 75%)`);
         
         // Vérifier la taille finale (sécurité supplémentaire)
-        const MAX_IMAGE_SIZE = 50 * 1024; // 50KB max après compression
+        const MAX_IMAGE_SIZE = 30 * 1024; // 30KB max après compression
         if (resizedBuffer.length > MAX_IMAGE_SIZE) {
+            console.log(`⚠️ Image encore trop grande (${resizedBuffer.length} bytes), compression supplémentaire...`);
             // Réduire encore la qualité si trop grande
             const finalBuffer = await sharp(originalBuffer)
-                .resize(80, 80, { fit: 'cover', position: 'center' })
-                .jpeg({ quality: 60 })
+                .resize(60, 60, { fit: 'cover', position: 'center' })
+                .jpeg({ 
+                    quality: 60,
+                    mozjpeg: true
+                })
                 .toBuffer();
             
-            console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes`);
+            console.log(`✅ Image re-compressée: ${resizedBuffer.length} → ${finalBuffer.length} bytes (JPEG 60%)`);
             return finalBuffer;
         }
         
@@ -502,8 +536,8 @@ async function createWordDocumentBuffer(studentName, className, studentBirthdate
                 if (!tagValue || tagValue === "" || (typeof tagValue === 'string' && tagValue.length === 0)) {
                     return [1, 1];
                 }
-                // Sinon, taille normale 80x80
-                return [80, 80];
+                // Sinon, taille 60x60 (optimisée pour ne pas prendre trop d'espace)
+                return [60, 60];
             }
         };
         
