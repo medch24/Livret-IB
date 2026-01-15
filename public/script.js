@@ -1497,6 +1497,12 @@ async function generateAllWordsInSection() {
             
             console.log(`📥 Génération livret pour: ${studentName} (${i + 1}/${students.length})`);
 
+            // Récupérer les infos complètes de l'élève depuis studentData
+            const studentInfo = studentData[studentName] || {};
+            const fullName = studentInfo.fullName || studentName;
+            const birthdate = studentInfo.birthdate || '';
+            const photoUrl = studentInfo.photo || '';
+
             try {
                 // Générer le livret pour cet élève
                 const response = await fetch('/api/generateSingleWord', {
@@ -1506,6 +1512,9 @@ async function generateAllWordsInSection() {
                     },
                     body: JSON.stringify({
                         studentSelected: studentName,
+                        studentFullName: fullName,
+                        studentBirthdate: birthdate,
+                        studentPhoto: photoUrl,
                         classSelected: classe,
                         sectionSelected: section
                     })

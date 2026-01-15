@@ -13,7 +13,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 app.disable('x-powered-by');
 
 // Variables d'environnement - FORCER LA BONNE URL
-const TEMPLATE_URL = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
+const TEMPLATE_URL = process.env.TEMPLATE_URL || 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://mohamedsherif:Mmedch86@livret2026.9owu7hs.mongodb.net/?appName=Livret2026';
 const DB_NAME = 'teacherContributionsDB';
 
@@ -217,7 +217,14 @@ app.post('/api/getStudentsList', async (req, res) => {
 // Génération du livret Word
 app.post('/api/generateSingleWord', async (req, res) => {
     try {
-        const { studentSelected, classSelected, sectionSelected } = req.body;
+        const { 
+            studentSelected, 
+            studentFullName, 
+            studentBirthdate, 
+            studentPhoto,
+            classSelected, 
+            sectionSelected 
+        } = req.body;
         
         console.log(`\n📝 Génération livret: ${studentSelected} (${classSelected} ${sectionSelected})`);
         
@@ -236,7 +243,7 @@ app.post('/api/generateSingleWord', async (req, res) => {
         const templateBuffer = await templateResponse.buffer();
         console.log(`✅ Template téléchargé: ${templateBuffer.length} bytes`);
         
-        // 2. Récupérer les contributions
+        // 2. Récupérer les contributions (cherche par "studentSelected" qui est le prénom/clé)
         const contributions = await contributionsCollection.find({
             studentSelected,
             classSelected,
@@ -249,9 +256,38 @@ app.post('/api/generateSingleWord', async (req, res) => {
             return res.status(404).json({ error: 'Aucune contribution trouvée' });
         }
         
-        // 3. Récupérer infos élève
-        const studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
-        console.log(`👤 Infos élève: ${studentInfo ? 'Trouvées' : 'Non trouvées'}`);
+        // 3. Récupérer infos élève (si pas fournies dans req.body)
+        let studentInfo = null;
+        if (!studentFullName || !studentBirthdate) {
+            // Essayer de trouver par fullName si studentSelected est déjà un nom complet, ou essayer de deviner
+            // Mais ici on fait confiance à ce qui est envoyé par le front (studentFullName)
+             studentInfo = await studentsCollection.findOne({ fullName: studentSelected });
+             console.log(`👤 Infos élève (DB): ${studentInfo ? 'Trouvées' : 'Non trouvées'}`);
+        }
+
+        // Préparation des données finales
+        const finalStudentName = studentFullName || studentInfo?.fullName || studentSelected;
+        const finalBirthdate = studentBirthdate || studentInfo?.birthDate || studentInfo?.studentBirthdate || '';
+        const finalPhotoUrl = studentPhoto || studentInfo?.studentPhotoUrl || '';
+
+        console.log(`👤 Données élève utilisées: Nom=${finalStudentName}, Né(e)=${finalBirthdate}, Photo=${finalPhotoUrl ? 'Oui' : 'Non'}`);
+
+        // 3.5 Précharger l'image de l'élève
+        let studentPhotoBuffer = TRANSPARENT_PIXEL;
+        if (finalPhotoUrl) {
+            try {
+                console.log(`🖼️ Téléchargement photo: ${finalPhotoUrl}`);
+                const imgResp = await fetch(finalPhotoUrl);
+                if (imgResp.ok) {
+                    studentPhotoBuffer = await imgResp.buffer();
+                    console.log(`✅ Photo téléchargée: ${studentPhotoBuffer.length} bytes`);
+                } else {
+                    console.warn(`⚠️ Erreur téléchargement photo (Status ${imgResp.status})`);
+                }
+            } catch (e) {
+                console.error("❌ Erreur fetch photo:", e.message);
+            }
+        }
         
         // 4. Formater les contributions selon les balises du template
         const formattedContributions = contributions.map(c => {
@@ -303,12 +339,18 @@ app.post('/api/generateSingleWord', async (req, res) => {
             };
         });
         
-        // 5. Module image (transparent par défaut)
+        // 5. Module image
         const imageOpts = {
             centered: true,
             fileType: "docx",
-            getImage: () => TRANSPARENT_PIXEL,
-            getSize: () => [180, 180]
+            getImage: (tagValue, tagName) => {
+                // Si la valeur est un buffer (notre photo préchargée), on le retourne
+                if (Buffer.isBuffer(tagValue)) {
+                    return tagValue;
+                }
+                return TRANSPARENT_PIXEL;
+            },
+            getSize: () => [120, 150] // Taille standard photo identité
         };
         
         const imageModule = new ImageModule(imageOpts);
@@ -323,10 +365,10 @@ app.post('/api/generateSingleWord', async (req, res) => {
         });
         
         const renderData = {
-            studentSelected: studentSelected,
-            studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || '',
+            studentSelected: finalStudentName, // Utilise le nom complet
+            studentBirthdate: finalBirthdate,
             className: classSelected,
-            image: 'image.png',
+            image: studentPhotoBuffer, // Passe le buffer préchargé
             contributionsBySubject: formattedContributions,
             atlSummaryTable: formattedContributions.map(c => ({
                 subject: c.subjectSelected,
@@ -344,7 +386,8 @@ app.post('/api/generateSingleWord', async (req, res) => {
             studentBirthdate: renderData.studentBirthdate,
             className: renderData.className,
             contributionsCount: renderData.contributionsBySubject.length,
-            atlTableCount: renderData.atlSummaryTable.length
+            atlTableCount: renderData.atlSummaryTable.length,
+            hasImage: renderData.image !== TRANSPARENT_PIXEL
         });
         
         try {
@@ -363,7 +406,7 @@ app.post('/api/generateSingleWord', async (req, res) => {
         
         console.log(`✅ Document généré: ${buffer.length} bytes`);
         
-        const filename = `Livret-${studentSelected.replace(/\s+/g, '_')}-${classSelected}.docx`;
+        const filename = `Livret-${finalStudentName.replace(/\s+/g, '_')}-${classSelected}.docx`;
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         res.send(buffer);
