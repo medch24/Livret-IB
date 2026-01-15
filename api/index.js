@@ -12,7 +12,7 @@ const MONGODB_URI = process.env.MONGODB_URI;
 const TEMPLATE_URL = process.env.TEMPLATE_URL;
 const DB_NAME = 'teacherContributionsDB';
 
-// Buffer d'une image transparente pour remplacer le texte "image.png"
+// Image transparente pour remplacer le texte "img" ou "image"
 const TRANSPARENT_PIXEL = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
 
 const criteriaBySubject = {
@@ -35,6 +35,100 @@ async function connectToDatabase() {
     return cachedDb;
 }
 
+app.post('/api/generateSingleWord', async (req, res) => {
+    try {
+        const { studentSelected, classSelected, sectionSelected } = req.body;
+        const db = await connectToDatabase();
+        
+        // On cherche les contributions (le front envoie le Nom Complet maintenant)
+        const contributions = await db.collection('contributions').find({ 
+            studentSelected, 
+            classSelected, 
+            sectionSelected 
+        }).toArray();
+
+        const studentInfo = await db.collection('students').findOne({ fullName: studentSelected });
+
+        if (!contributions.length) return res.status(404).json({ error: "Aucune donnée trouvée" });
+
+        const templateResp = await fetch(TEMPLATE_URL);
+        const templateBuffer = await templateResp.buffer();
+
+        // --- MAPPING DE SÉCURITÉ CONTRE LES "UNDEFINED" ---
+        const formatted = contributions.map(c => {
+            const cv = c.criteriaValues || {};
+            const subjCrit = criteriaBySubject[c.subjectSelected] || {};
+            
+            // Fonction pour renvoyer soit la valeur, soit du vide (jamais undefined)
+            const val = (crit, field) => (cv[crit] && cv[crit][field] != null) ? cv[crit][field] : "";
+
+            return {
+                teacherName: c.teacherName || "",
+                subjectSelected: c.subjectSelected || "",
+                teacherComment: c.teacherComment || c.comments || "",
+                criteriaKey: { A: "A", B: "B", C: "C", D: "D" },
+                "criteriaName A": subjCrit.A || "Critère A",
+                "criteriaName B": subjCrit.B || "Critère B",
+                "criteriaName C": subjCrit.C || "Critère C",
+                "criteriaName D": subjCrit.D || "Critère D",
+                criteriaA: { sem1: val('A','sem1'), sem2: val('A','sem2') },
+                criteriaB: { sem1: val('B','sem1'), sem2: val('B','sem2') },
+                criteriaC: { sem1: val('C','sem1'), sem2: val('C','sem2') },
+                criteriaD: { sem1: val('D','sem1'), sem2: val('D','sem2') },
+                finalLevel: {
+                    A: val('A','finalLevel'), B: val('B','finalLevel'),
+                    C: val('C','finalLevel'), D: val('D','finalLevel')
+                },
+                seuil: c.threshold || "",
+                note: c.finalNote || c.finalGrade || ""
+            };
+        });
+
+        const zip = new PizZip(templateBuffer);
+        
+        // Configuration du module image
+        const imageModule = new ImageModule({
+            centered: true,
+            fileType: "docx",
+            getImage: () => TRANSPARENT_PIXEL,
+            getSize: () => [120, 120]
+        });
+
+        const doc = new DocxTemplater(zip, {
+            paragraphLoop: true,
+            linebreaks: true,
+            nullGetter: () => "", // Force la suppression des tags non trouvés
+            modules: [imageModule]
+        });
+
+        doc.render({
+            className: classSelected,
+            studentSelected: studentSelected,
+            studentBirthdate: studentInfo?.birthDate || studentInfo?.studentBirthdate || req.body.studentBirthdate || "",
+            image: "img", // Cette valeur sera remplacée par le pixel transparent
+            contributionsBySubject: formatted,
+            atlSummaryTable: contributions.map(c => ({
+                subject: c.subjectSelected || "",
+                communication: c.communicationEvaluation?.[0] || "",
+                collaboration: c.communicationEvaluation?.[1] || "",
+                autogestion: c.communicationEvaluation?.[2] || "",
+                recherche: c.communicationEvaluation?.[3] || "",
+                reflexion: c.communicationEvaluation?.[4] || ""
+            }))
+        });
+
+        const buf = doc.getZip().generate({ type: 'nodebuffer' });
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        res.setHeader('Content-Disposition', `attachment; filename=Livret_${studentSelected}.docx`);
+        res.send(buf);
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Garder les autres routes (saveContribution, etc.)
 app.post('/api/fetchStudentInfo', async (req, res) => {
     try {
         const db = await connectToDatabase();
@@ -67,75 +161,6 @@ app.post('/api/getStudentsList', async (req, res) => {
             sectionSelected: req.body.sectionSelected
         });
         res.json({ success: true, students });
-    } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/generateSingleWord', async (req, res) => {
-    try {
-        const { studentSelected, classSelected, sectionSelected } = req.body;
-        const db = await connectToDatabase();
-        const [contributions, studentInfo] = await Promise.all([
-            db.collection('contributions').find({ studentSelected, classSelected, sectionSelected }).toArray(),
-            db.collection('students').findOne({ fullName: studentSelected })
-        ]);
-
-        if (!contributions.length) return res.status(404).json({ error: "Aucune donnée" });
-
-        const templateResp = await fetch(TEMPLATE_URL);
-        const templateBuffer = await templateResp.buffer();
-
-        const formatted = contributions.map(c => {
-            const subjCrit = criteriaBySubject[c.subjectSelected] || {};
-            const cv = c.criteriaValues || {};
-            return {
-                teacherName: c.teacherName || '',
-                subjectSelected: c.subjectSelected || '',
-                teacherComment: c.teacherComment || '',
-                criteriaKey: { A: 'A', B: 'B', C: 'C', D: 'D' },
-                "criteriaName A": subjCrit.A || '', "criteriaName B": subjCrit.B || '',
-                "criteriaName C": subjCrit.C || '', "criteriaName D": subjCrit.D || '',
-                criteriaA: { sem1: cv.A?.sem1 ?? '', sem2: cv.A?.sem2 ?? '' },
-                criteriaB: { sem1: cv.B?.sem1 ?? '', sem2: cv.B?.sem2 ?? '' },
-                criteriaC: { sem1: cv.C?.sem1 ?? '', sem2: cv.C?.sem2 ?? '' },
-                criteriaD: { sem1: cv.D?.sem1 ?? '', sem2: cv.D?.sem2 ?? '' },
-                finalLevel: {
-                    A: cv.A?.finalLevel ?? '', B: cv.B?.finalLevel ?? '',
-                    C: cv.C?.finalLevel ?? '', D: cv.D?.finalLevel ?? ''
-                },
-                seuil: c.threshold ?? '',
-                note: c.finalNote ?? ''
-            };
-        });
-
-        const zip = new PizZip(templateBuffer);
-        const imageModule = new ImageModule({
-            centered: true, fileType: "docx",
-            getImage: () => TRANSPARENT_PIXEL,
-            getSize: () => [120, 120]
-        });
-
-        const doc = new DocxTemplater(zip, { paragraphLoop: true, linebreaks: true, modules: [imageModule] });
-
-        doc.render({
-            className: classSelected,
-            studentSelected: studentSelected,
-            studentBirthdate: studentInfo?.birthDate || '',
-            image: "img", // Déclenche le remplacement de la balise {image}
-            contributionsBySubject: formatted,
-            atlSummaryTable: contributions.map(c => ({
-                subject: c.subjectSelected,
-                communication: c.communicationEvaluation?.[0] || '',
-                collaboration: c.communicationEvaluation?.[1] || '',
-                autogestion: c.communicationEvaluation?.[2] || '',
-                recherche: c.communicationEvaluation?.[3] || '',
-                reflexion: c.communicationEvaluation?.[4] || ''
-            }))
-        });
-
-        const buf = doc.getZip().generate({ type: 'nodebuffer' });
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-        res.setHeader('Content-Disposition', `attachment; filename=Livret.docx`);
-        res.send(buf);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
