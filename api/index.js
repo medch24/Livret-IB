@@ -5,6 +5,7 @@ const PizZip = require("pizzip");
 const DocxTemplater = require("docxtemplater");
 const ImageModule = require('docxtemplater-image-module-free');
 const fetch = require('node-fetch');
+const Jimp = require('jimp');
 
 const app = express();
 app.use(express.json({ limit: '50mb' }));
@@ -278,11 +279,28 @@ app.post('/api/generateSingleWord', async (req, res) => {
             try {
                 console.log(`🖼️ Téléchargement photo: ${finalPhotoUrl}`);
                 const imgResp = await fetch(finalPhotoUrl);
-                if (imgResp.ok) {
-                    studentPhotoBuffer = await imgResp.buffer();
-                    console.log(`✅ Photo téléchargée: ${studentPhotoBuffer.length} bytes`);
+                const contentType = imgResp.headers.get('content-type');
+                
+                if (imgResp.ok && contentType && contentType.startsWith('image/')) {
+                    const rawBuffer = await imgResp.buffer();
+                    
+                    // Validation et conversion avec Jimp pour éviter la corruption du fichier Word
+                    try {
+                        const image = await Jimp.read(rawBuffer);
+                        // Redimensionner si trop grand pour réduire la taille du fichier
+                        if (image.getWidth() > 600) {
+                            image.resize(600, Jimp.AUTO);
+                        }
+                        // Convertir en PNG (format sûr pour Word)
+                        studentPhotoBuffer = await image.getBufferAsync(Jimp.MIME_PNG);
+                        console.log(`✅ Photo traitée et valide (Jimp): ${studentPhotoBuffer.length} bytes`);
+                    } catch (jimpError) {
+                        console.error("❌ Erreur traitement image (Jimp):", jimpError.message);
+                        console.warn("⚠️ Utilisation du pixel transparent par sécurité");
+                        studentPhotoBuffer = TRANSPARENT_PIXEL;
+                    }
                 } else {
-                    console.warn(`⚠️ Erreur téléchargement photo (Status ${imgResp.status})`);
+                    console.warn(`⚠️ Image invalide ou erreur téléchargement (Status ${imgResp.status}, Type ${contentType})`);
                 }
             } catch (e) {
                 console.error("❌ Erreur fetch photo:", e.message);
@@ -350,7 +368,13 @@ app.post('/api/generateSingleWord', async (req, res) => {
                 }
                 return TRANSPARENT_PIXEL;
             },
-            getSize: () => [120, 150] // Taille standard photo identité
+            getSize: (img, tagValue, tagName) => {
+                // Si c'est le pixel transparent, on retourne une petite taille (1x1)
+                if (tagValue === TRANSPARENT_PIXEL) {
+                    return [1, 1];
+                }
+                return [120, 150]; // Taille standard photo identité
+            }
         };
         
         const imageModule = new ImageModule(imageOpts);
