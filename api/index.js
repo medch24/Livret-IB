@@ -436,24 +436,19 @@ app.post('/api/generateSingleWord', async (req, res) => {
             });
         }
         
-        // FORCER L'UTILISATION DE GOOGLE DOCS (ignorer variables d'environnement)
-        const GOOGLE_DOCS_TEMPLATE = 'https://docs.google.com/document/d/18eo_E2ex8K5xu5ce6BQhN8MWi5mL_Nga/export?format=docx';
-        const templateUrl = GOOGLE_DOCS_TEMPLATE;
+        // UTILISER LE TEMPLATE LOCAL Modele-Original.docx
+        await connectToMongo();
         
-        console.log(`📄 TEMPLATE FORCÉ: Google Docs`);
-        console.log(`   URL: ${templateUrl}`);
-        console.log(`   Variables env ignorées (TEMPLATE_URL: ${process.env.TEMPLATE_URL ? 'existe mais ignorée' : 'non définie'})`);
-        console.log(`   Variables env ignorées (TEMPLATE_URL_DP: ${process.env.TEMPLATE_URL_DP ? 'existe mais ignorée' : 'non définie'})`);
+        const templatePath = path.join(__dirname, '../public/templates/modele-pei.docx');
         
-        console.log(`📄 Téléchargement template: ${templateUrl}`);
-        const templateResponse = await fetch(templateUrl);
+        console.log(`📄 Chargement template local: ${templatePath}`);
         
-        if (!templateResponse.ok) {
-            throw new Error(`Erreur téléchargement template Google Docs: ${templateResponse.status}`);
+        if (!fs.existsSync(templatePath)) {
+            throw new Error(`Template non trouvé: ${templatePath}`);
         }
         
-        const templateBuffer = await templateResponse.buffer();
-        console.log(`✅ Template téléchargé: ${templateBuffer.length} bytes`);
+        const templateBuffer = fs.readFileSync(templatePath);
+        console.log(`✅ Template chargé: ${templateBuffer.length} bytes`);
         
         // 2. Récupérer les contributions de l'élève
         const contributions = await contributionsCollection.find({
