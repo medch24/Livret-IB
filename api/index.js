@@ -482,7 +482,7 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
             subjectSelected: c.subjectSelected,
             teacherName: c.teacherName || "N/A",
             teacherComment: c.teacherComment || "-",
-            isArabic: isArabicSubject ? "true" : "false",  // Indicateur pour RTL dans le template
+            isArabic: isArabicSubject,  // Indicateur bool\u00e9en pour RTL dans le template
             ...criteriaTemplateData
         };
         documentData.contributionsBySubject.push(subjectContributionData);
@@ -739,18 +739,26 @@ app.post('/api/saveContribution', async (req, res) => {
 app.post('/api/fetchStudentContributions', async (req, res) => {
     // Le middleware ensureDbConnection garantit que la DB est connectée
     try {
-        const { student } = req.body;
-        if (!student) {
-            return res.json([]);
+        const { studentSelected, classSelected, sectionSelected } = req.body;
+        if (!studentSelected) {
+            return res.json({ contributions: [] });
         }
-        const contributions = await contributionsCollection.find({ studentSelected: student })
+        
+        // Construire le filtre de requête
+        const filter = { studentSelected };
+        if (classSelected) filter.classSelected = classSelected;
+        if (sectionSelected) filter.sectionSelected = sectionSelected;
+        
+        const contributions = await contributionsCollection.find(filter)
             .sort({ subjectSelected: 1 })
             .toArray();
-        res.json(contributions);
+        
+        console.log(`📚 Contributions trouvées pour ${studentSelected}:`, contributions.length);
+        res.json({ contributions });
     } catch (error) {
         console.error('Error fetching student contributions:', error);
-        // Retourner un tableau vide au lieu d'erreur 500
-        res.json([]);
+        // Retourner un objet avec tableau vide au lieu d'erreur 500
+        res.json({ contributions: [] });
     }
 });
 

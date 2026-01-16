@@ -651,6 +651,8 @@ function rebuildCriteriaTableArabic() {
     // Construire le corps du tableau
     let bodyHTML = '';
     criteriaKeys.forEach((key, index) => {
+        const criteriaData = currentData.criteriaValues[key] || {sem1: null, sem2: null, finalLevel: null, sem1Units: [], sem2Units: []};
+        
         // Afficher "A: الاستماع" au lieu de juste "الاستماع"
         const criterionName = criteriaNames[key] || key;
         const criteriaLabel = criteriaNames[key] ? `${key}: ${criterionName}` : key;
@@ -659,25 +661,32 @@ function rebuildCriteriaTableArabic() {
         
         // Semestre 1
         if (unitsSem1 > 1) {
-            for (let i = 1; i <= unitsSem1; i++) {
-                bodyHTML += `<td class="sem1-unit"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', ${i})"></td>`;
+            for (let i = 0; i < unitsSem1; i++) {
+                const val = criteriaData.sem1Units[i] !== null && criteriaData.sem1Units[i] !== undefined ? criteriaData.sem1Units[i] : '';
+                bodyHTML += `<td class="sem1-unit"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', ${i+1})" data-unit="${i}"></td>`;
             }
-            bodyHTML += `<td><input type="number" readonly tabindex="-1" class="sem1-avg-input"></td>`;
+            const avgVal = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
+            bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem1-avg-input"></td>`;
         } else {
-            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', 1)"></td>`;
+            const val = criteriaData.sem1 !== null ? criteriaData.sem1 : '';
+            bodyHTML += `<td class="sem1-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem1', 1)" data-unit="0"></td>`;
         }
         
         // Semestre 2
         if (unitsSem2 > 1) {
-            for (let i = 1; i <= unitsSem2; i++) {
-                bodyHTML += `<td class="sem2-unit"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', ${i})"></td>`;
+            for (let i = 0; i < unitsSem2; i++) {
+                const val = criteriaData.sem2Units[i] !== null && criteriaData.sem2Units[i] !== undefined ? criteriaData.sem2Units[i] : '';
+                bodyHTML += `<td class="sem2-unit"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', ${i+1})" data-unit="${i}"></td>`;
             }
-            bodyHTML += `<td><input type="number" readonly tabindex="-1" class="sem2-avg-input"></td>`;
+            const avgVal = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
+            bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${avgVal}" class="sem2-avg-input"></td>`;
         } else {
-            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', 1)"></td>`;
+            const val = criteriaData.sem2 !== null ? criteriaData.sem2 : '';
+            bodyHTML += `<td class="sem2-cell"><input type="number" min="0" max="${maxValue}" value="${val}" oninput="validateInput(this); handleCriteriaChange('${key}', 'sem2', 1)" data-unit="0"></td>`;
         }
         
-        bodyHTML += `<td><input type="number" readonly tabindex="-1" class="final-level-input"></td>`;
+        const finalVal = criteriaData.finalLevel !== null ? criteriaData.finalLevel : '';
+        bodyHTML += `<td><input type="number" readonly tabindex="-1" value="${finalVal}" class="final-level-input"></td>`;
         
         if (index === 0) {
             bodyHTML += `<td rowspan="4"><input id="thresholdArabic" type="number" readonly tabindex="-1" style="background-color: #e9ecef;"></td>`;
@@ -688,6 +697,9 @@ function rebuildCriteriaTableArabic() {
     });
     
     tbody.innerHTML = bodyHTML;
+    
+    // Recalculer les totaux après construction
+    calculateTotals();
 }
 
 
@@ -1275,7 +1287,24 @@ async function submitForm() {
             alert(`✅ Contribution enregistrée avec succès dans la base de données !\n\n(ID: ${result.data})`);
             currentContributionId = result.data;
             
+            // Mettre à jour les indicateurs de matières complétées
             if (currentData.studentSelected) {
+                // Marquer cette matière comme complétée
+                if (!completedSubjects[currentData.studentSelected]) {
+                    completedSubjects[currentData.studentSelected] = {};
+                }
+                completedSubjects[currentData.studentSelected][currentData.subjectSelected] = true;
+                
+                // Mettre à jour visuellement la carte
+                const cards = document.querySelectorAll('.subject-card');
+                cards.forEach(card => {
+                    const cardTitle = card.querySelector('h3')?.textContent;
+                    if (cardTitle === currentData.subjectSelected) {
+                        card.classList.add('completed');
+                    }
+                });
+                
+                // Récupérer aussi les contributions pour afficher
                 fetchStudentContributions(currentData.studentSelected);
             }
         } else {
@@ -1306,7 +1335,12 @@ async function fetchStudentContributions(student) {
     if (!student) return;
     
     try {
-        const contributions = await apiCall('fetchStudentContributions', { student });
+        const response = await apiCall('fetchStudentContributions', { 
+            studentSelected: student,
+            classSelected: currentData.classSelected,
+            sectionSelected: currentData.sectionSelected
+        });
+        const contributions = response?.contributions || [];
         
         dataContainer.innerHTML = '<h3>Contributions Enregistrées</h3>';
         
