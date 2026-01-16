@@ -1465,9 +1465,17 @@ async function editContribution(contributionId) {
                 populateSubjects();
                 
                 setTimeout(() => {
-                    subjectSelector.value = dataFromServer.subjectSelected || '';
+                    // Pas besoin de sélectionner la matière car on utilise des cartes maintenant
                     currentData.subjectSelected = dataFromServer.subjectSelected;
-                    updateCriteriaTableHeaders();
+                    // Déclencher le clic sur la carte de matière correspondante
+                    if (dataFromServer.subjectSelected) {
+                        const cards = document.querySelectorAll('.subject-card');
+                        cards.forEach(card => {
+                            if (card.dataset.subject === dataFromServer.subjectSelected) {
+                                card.click();
+                            }
+                        });
+                    }
                 }, 50);
             }, 50);
         } else {
@@ -1633,7 +1641,10 @@ function resetOnClassChange() {
 }
 
 function resetOnStudentChange() {
-    subjectSelector.innerHTML = "<option value=''>-- Sélectionnez une matière --</option>";
+    // Plus besoin de réinitialiser le selector (on utilise des cartes)
+    // Réinitialiser la grille de cartes
+    const cards = document.querySelectorAll('.subject-card');
+    cards.forEach(card => card.classList.remove('selected'));
     document.getElementById('step2').style.display = "none";
     studentInfoContainer.style.display = "none";
     currentData.studentSelected = studentSelector.value;
@@ -1643,7 +1654,7 @@ function resetOnStudentChange() {
 
 function resetOnSubjectChange() {
     contributionEntrySections.style.display = "none";
-    currentData.subjectSelected = subjectSelector.value;
+    // currentData.subjectSelected est déjà mis à jour lors du clic sur la carte
     resetFormData();
 }
 
