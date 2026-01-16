@@ -404,27 +404,73 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
     return templateData;
 }
 
+// Fonction pour détecter la catégorie d'une matière (flexible avec variations de noms)
+function getSubjectCategory(subjectName) {
+    if (!subjectName) return 999;
+    
+    const name = subjectName.toLowerCase();
+    
+    // 1. Langue et littérature (LL, Français, etc.)
+    if (name.includes('langue et litt') || name.includes('ll') || 
+        (name.includes('langue') && name.includes('français'))) {
+        return 1;
+    }
+    
+    // 2. Acquisition de langue - ARABE (avec caractères arabes)
+    if (name.includes('arabe') || name.includes('العربية') || name.includes('اللغة')) {
+        return 2;
+    }
+    
+    // 3. Acquisition de langue - ANGLAIS
+    if (name.includes('anglais') || name.includes('english')) {
+        return 3;
+    }
+    
+    // 4. Individus et sociétés
+    if (name.includes('individu') || name.includes('société')) {
+        return 4;
+    }
+    
+    // 5. Sciences
+    if (name.includes('science')) {
+        return 5;
+    }
+    
+    // 6. Mathématiques
+    if (name.includes('math')) {
+        return 6;
+    }
+    
+    // 7. Arts (Art visuel, Arts plastiques, etc.)
+    if (name.includes('art')) {
+        return 7;
+    }
+    
+    // 8. Éducation physique (sportive, santé, etc.)
+    if (name.includes('éducation physique') || name.includes('education physique') || 
+        name.includes('eps') || (name.includes('physique') && name.includes('sport'))) {
+        return 8;
+    }
+    
+    // 9. Design
+    if (name.includes('design')) {
+        return 9;
+    }
+    
+    // Si aucune catégorie trouvée, mettre à la fin
+    return 999;
+}
+
 // Fonction pour trier les matières dans l'ordre pédagogique requis
 function sortSubjectsByOrder(contributions) {
-    const subjectOrder = [
-        'Langue et littérature',                    // 1
-        'Acquisition de langue (اللغة العربية)',    // 2 - Arabe d'abord
-        'Acquisition de langue (Anglais)',          // 3 - Puis anglais
-        'Individus et sociétés',                    // 4
-        'Sciences',                                 // 5
-        'Mathématiques',                            // 6
-        'Art visuel',                               // 7 - Arts
-        'Éducation physique et sportive',           // 8
-        'Design'                                    // 9
-    ];
-    
     return contributions.sort((a, b) => {
-        const indexA = subjectOrder.indexOf(a.subjectSelected);
-        const indexB = subjectOrder.indexOf(b.subjectSelected);
+        const orderA = getSubjectCategory(a.subjectSelected);
+        const orderB = getSubjectCategory(b.subjectSelected);
         
-        // Si une matière n'est pas dans la liste, la mettre à la fin
-        const orderA = indexA === -1 ? 999 : indexA;
-        const orderB = indexB === -1 ? 999 : indexB;
+        // Si même catégorie, trier alphabétiquement
+        if (orderA === orderB) {
+            return (a.subjectSelected || '').localeCompare(b.subjectSelected || '');
+        }
         
         return orderA - orderB;
     });
