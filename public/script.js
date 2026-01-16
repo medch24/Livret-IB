@@ -450,6 +450,23 @@ function handleCriteriaChange(inputElement) {
 }
 
 // Logique de sélection
+// Fonction pour retourner à l'accueil
+function goToHome() {
+    // Réinitialiser toutes les données
+    resetOnSectionChange();
+    
+    // Afficher uniquement les boutons de section
+    document.getElementById('step0').style.display = 'block';
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+    contributionEntrySections.style.display = 'none';
+    dataContainer.style.display = 'none';
+    studentInfoContainer.style.display = 'none';
+    
+    console.log('🏠 Retour à l\'accueil');
+}
+
 function handleSectionChange(value) {
     currentData.sectionSelected = value;
     
@@ -779,20 +796,25 @@ async function populateSubjects() {
     if (classSelected && studentSelected && subjectsByClass[classSelected]) {
         // Récupérer les contributions existantes pour cet élève
         try {
-            const response = await fetch(`/api/fetchData?classSelected=${classSelected}&studentSelected=${studentSelected}`);
-            const data = await response.json();
+            const response = await apiCall('fetchStudentContributions', {
+                studentSelected: studentSelected,
+                classSelected: classSelected,
+                sectionSelected: currentData.sectionSelected
+            });
             
             // Marquer les matières avec des contributions
             completedSubjects[studentSelected] = {};
-            if (data && Array.isArray(data)) {
-                data.forEach(contrib => {
+            if (response && response.contributions && Array.isArray(response.contributions)) {
+                response.contributions.forEach(contrib => {
                     if (contrib.subjectSelected) {
                         completedSubjects[studentSelected][contrib.subjectSelected] = true;
                     }
                 });
             }
+            console.log(`✅ Matières complétées pour ${studentSelected}:`, Object.keys(completedSubjects[studentSelected] || {}));
         } catch (error) {
             console.error("Erreur lors de la récupération des contributions:", error);
+            completedSubjects[studentSelected] = {};
         }
         
         // Créer les cartes de matières

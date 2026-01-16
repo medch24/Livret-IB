@@ -25,6 +25,7 @@
     <header>
         <h1>Livret scolaire</h1>
         <div class="header-buttons">
+            <button id="homeButton" onclick="goToHome()" style="background-color: #6c757d; margin-right: auto;" title="Retour à l'accueil">🏠 Accueil</button>
             <button id="generateWordButton" onclick="generateAllWordsInSection()" title="Générer les livrets Word pour tous les élèves">Générer Tous les Livrets (Word)</button>
             <button id="generateExcelButton" onclick="generateExcel()" style="background-color: #198754;" title="Générer un export Excel">Générer Excel (Section)</button>
         </div>
@@ -323,6 +324,7 @@
     <script>
         // script.js charge toutes les fonctions et variables requises.
         // Ici, nous n'ajoutons que les handlers nécessaires pour les attributs HTML inline.
+        window.goToHome = goToHome;
         window.handleSectionChange = handleSectionChange;
         window.handleClassChange = handleClassChange;
         window.handleStudentChange = handleStudentChange;
