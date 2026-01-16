@@ -1715,8 +1715,14 @@ function getSubjectColor(subject) {
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', () => {
+    console.log("🚀 Livret IB Version 2.1 - Commit: 35726f6");
+    console.log("✅ Cartes de matières activées");
+    console.log("✅ Chargement automatique des données");
+    console.log("✅ ATL arabe corrigé");
+    console.log("✅ RTL pour observations arabes");
+    
     if (currentData.teacherName) {
         teacherNameInput.value = currentData.teacherName;
     }
-    console.log("Application prête.");
+    console.log("📱 Application prête.");
 });

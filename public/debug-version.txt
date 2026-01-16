@@ -1,0 +1,8 @@
+Version: 2.1
+Date: 2026-01-16 07:10
+Commit: 35726f6
+Features:
+- Cartes de matières avec icônes
+- Chargement automatique des données
+- ATL arabe fixé
+- RTL pour observations arabes
