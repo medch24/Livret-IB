@@ -1,8 +1,21 @@
-Version: 2.1
-Date: 2026-01-16 07:10
-Commit: 35726f6
+Version: 2.0.2
+Date: 2026-01-16 08:30:00
+Commit: 490eeea
 Features:
-- Cartes de matières avec icônes
+- Nouveau design avec cartes de matières
+- Corrections ATL arabe
+- RTL pour commentaires arabes
 - Chargement automatique des données
-- ATL arabe fixé
-- RTL pour observations arabes
+- FIX: Suppression des références à subjectSelector
+
+Test: Si vous voyez ce fichier, le déploiement fonctionne correctement.
+
+Dernières corrections:
+- Suppression complète de subjectSelector (remplacé par cartes)
+- Correction des fonctions resetOnStudentChange et resetOnSubjectChange
+- Correction du chargement des données lors de l'édition
+
+Si les cartes de sections ne s'affichent toujours pas:
+1. Vider le cache du navigateur (Ctrl+Shift+R ou Cmd+Shift+R)
+2. Vérifier la console JavaScript (F12)
+3. Attendre 2-3 minutes pour le déploiement Vercel
