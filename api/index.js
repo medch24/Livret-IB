@@ -474,10 +474,15 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
         });
         
         const criteriaTemplateData = createCriteriaDataForTemplate(c.criteriaValues, c.subjectSelected, className);
+        
+        // Détecter si c'est la matière arabe pour appliquer RTL
+        const isArabicSubject = c.subjectSelected && c.subjectSelected.includes('اللغة العربية');
+        
         const subjectContributionData = {
             subjectSelected: c.subjectSelected,
             teacherName: c.teacherName || "N/A",
             teacherComment: c.teacherComment || "-",
+            isArabic: isArabicSubject ? "true" : "false",  // Indicateur pour RTL dans le template
             ...criteriaTemplateData
         };
         documentData.contributionsBySubject.push(subjectContributionData);
