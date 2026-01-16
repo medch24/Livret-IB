@@ -1,6 +1,6 @@
 {
   "name": "livret-scolaire-vercel",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Système de gestion des livrets scolaires IB - Vercel",
   "main": "api/index.js",
   "scripts": {
