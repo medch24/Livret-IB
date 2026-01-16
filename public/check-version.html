@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vérification Version - Livret IB</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #007bff;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .check-item {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #ccc;
+            background: #f9f9f9;
+        }
+        .check-item.success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+        .check-item.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+        .check-item.warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+        .check-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        .check-content {
+            font-family: monospace;
+            background: rgba(0,0,0,0.05);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button.danger {
+            background: #dc3545;
+        }
+        button.danger:hover {
+            background: #c82333;
+        }
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #004085;
+        }
+        code {
+            background: #f8f9fa;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #e83e8c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Vérification de la Version du Système</h1>
+        
+        <div id="results"></div>
+
+        <div class="instructions">
+            <h3>📋 Instructions si le cache est détecté:</h3>
+            <ol>
+                <li><strong>Windows/Linux:</strong> Appuyez sur <code>Ctrl + Shift + Delete</code></li>
+                <li><strong>Mac:</strong> Appuyez sur <code>Cmd + Shift + Delete</code></li>
+                <li>Cochez "Images et fichiers en cache"</li>
+                <li>Période: "Toutes les périodes"</li>
+                <li>Cliquez "Effacer les données"</li>
+                <li>Fermez et rouvrez complètement le navigateur</li>
+                <li>Revenez sur cette page</li>
+            </ol>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <button onclick="runChecks()">🔄 Relancer les vérifications</button>
+            <button onclick="clearCacheAndReload()" class="danger">🗑️ Vider le cache et recharger</button>
+            <button onclick="window.location.href='/'">🏠 Aller à l'application</button>
+        </div>
+    </div>
+
+    <script>
+        function addCheck(title, isSuccess, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const checkDiv = document.createElement('div');
+            checkDiv.className = `check-item ${type}`;
+            
+            checkDiv.innerHTML = `
+                <div class="check-title">
+                    ${isSuccess ? '✅' : '❌'} ${title}
+                </div>
+                <div class="check-content">${content}</div>
+            `;
+            
+            resultsDiv.appendChild(checkDiv);
+        }
+
+        function runChecks() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>🔍 Résultats des vérifications:</h2>';
+
+            // Check 1: Version attendue
+            const expectedVersion = '2.0.2';
+            addCheck(
+                'Version attendue',
+                true,
+                `Version minimale requise: ${expectedVersion}`,
+                'success'
+            );
+
+            // Check 2: Script chargé
+            const scriptElements = document.querySelectorAll('script[src*="script.js"]');
+            if (scriptElements.length > 0) {
+                const scriptSrc = Array.from(scriptElements).map(s => s.src).join('<br>');
+                const hasVersion = Array.from(scriptElements).some(s => s.src.includes('?v='));
+                
+                if (hasVersion) {
+                    const versionMatch = scriptSrc.match(/\?v=([0-9.]+)/);
+                    const currentVersion = versionMatch ? versionMatch[1] : 'inconnue';
+                    
+                    if (currentVersion >= expectedVersion) {
+                        addCheck(
+                            'Version du script',
+                            true,
+                            `Version actuelle: ${currentVersion}<br>URL: ${scriptSrc}`,
+                            'success'
+                        );
+                    } else {
+                        addCheck(
+                            'Version du script',
+                            false,
+                            `Version actuelle: ${currentVersion} (ancienne!)<br>Veuillez vider le cache et recharger.`,
+                            'error'
+                        );
+                    }
+                } else {
+                    addCheck(
+                        'Version du script',
+                        false,
+                        `❌ Pas de version détectée dans l'URL<br>${scriptSrc}<br><br>⚠️ Vous utilisez l'ANCIEN fichier en cache!`,
+                        'error'
+                    );
+                }
+            } else {
+                addCheck(
+                    'Script chargé',
+                    false,
+                    'Aucun script.js détecté sur cette page (normal, c\'est la page de vérification)',
+                    'warning'
+                );
+            }
+
+            // Check 3: Variables globales
+            if (typeof subjectSelector !== 'undefined') {
+                addCheck(
+                    'Variable subjectSelector',
+                    false,
+                    '❌ La variable "subjectSelector" existe encore!<br>Cela signifie que vous utilisez l\'ANCIEN code en cache.<br><br>🔄 Videz le cache du navigateur immédiatement!',
+                    'error'
+                );
+            } else {
+                addCheck(
+                    'Variable subjectSelector',
+                    true,
+                    '✅ La variable "subjectSelector" n\'existe plus (correct!)',
+                    'success'
+                );
+            }
+
+            // Check 4: Date de compilation
+            const now = new Date();
+            addCheck(
+                'Date de vérification',
+                true,
+                `${now.toLocaleString('fr-FR')}`,
+                'success'
+            );
+
+            // Check 5: Navigateur
+            addCheck(
+                'Navigateur',
+                true,
+                `${navigator.userAgent}`,
+                'info'
+            );
+
+            // Check 6: Cache Storage
+            if ('caches' in window) {
+                caches.keys().then(cacheNames => {
+                    if (cacheNames.length > 0) {
+                        addCheck(
+                            'Cache Storage',
+                            false,
+                            `⚠️ ${cacheNames.length} cache(s) détecté(s): ${cacheNames.join(', ')}<br>Recommandation: Vider le cache`,
+                            'warning'
+                        );
+                    } else {
+                        addCheck(
+                            'Cache Storage',
+                            true,
+                            'Aucun cache détecté',
+                            'success'
+                        );
+                    }
+                });
+            }
+        }
+
+        function clearCacheAndReload() {
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            
+            // Effacer aussi le localStorage et sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            alert('Cache vidé! La page va se recharger...');
+            
+            // Recharger avec cache-bust
+            window.location.reload(true);
+        }
+
+        // Lancer les vérifications au chargement
+        window.addEventListener('DOMContentLoaded', runChecks);
+    </script>
+</body>
+</html>

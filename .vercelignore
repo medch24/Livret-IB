@@ -1,0 +1,49 @@
+# Fichiers de documentation
+*.md
+!README.md
+
+# Fichiers de test
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Templates locaux (on utilise TEMPLATE_URL)
+template_*.docx
+Livret*.docx
+
+# Scripts de migration (à exécuter manuellement)
+migrate_*.js
+verify_*.py
+test_*.js
+
+# Logs
+*.log
+logs/
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*~
+
+# Node modules (gérés par Vercel)
+node_modules/
+
+# Variables d'environnement locales
+.env.local
+.env.development
+
+# Cache
+.cache/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

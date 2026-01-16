@@ -1,11 +1,13 @@
 {
   "name": "livret-scolaire-vercel",
-  "version": "1.0.0",
-  "description": "Système de gestion des livrets scolaires adapté pour Vercel",
+  "version": "2.0.2",
+  "description": "Système de gestion des livrets scolaires IB - Vercel",
   "main": "api/index.js",
   "scripts": {
     "start": "node api/index.js",
-    "dev": "node api/index.js"
+    "dev": "node api/index.js",
+    "build": "echo 'Build completed successfully'",
+    "vercel-build": "echo 'Vercel build completed'"
   },
   "dependencies": {
     "archiver": "^6.0.1",
