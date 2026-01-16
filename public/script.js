@@ -1159,10 +1159,16 @@ async function submitForm() {
     submitButton.textContent = "Envoi en cours...";
     
     try {
+        // CORRECTION: S'assurer que communicationEvaluation est à jour avant soumission
+        handleCommunicationChange();
+        
         // Assurer que la date de naissance est à jour
         currentData.studentBirthdate = studentBirthdateInput.value || null;
         
         const contributionData = { ...currentData, contributionId: currentContributionId };
+        
+        console.log('📤 Données à sauvegarder:', contributionData);
+        console.log('📊 ATL Communication:', contributionData.communicationEvaluation);
         
         const result = await apiCall('saveContribution', contributionData);
         
