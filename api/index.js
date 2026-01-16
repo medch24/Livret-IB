@@ -404,6 +404,32 @@ function createCriteriaDataForTemplate(criteriaValues, originalSubjectName, clas
     return templateData;
 }
 
+// Fonction pour trier les matières dans l'ordre pédagogique requis
+function sortSubjectsByOrder(contributions) {
+    const subjectOrder = [
+        'Langue et littérature',                    // 1
+        'Acquisition de langue (اللغة العربية)',    // 2 - Arabe d'abord
+        'Acquisition de langue (Anglais)',          // 3 - Puis anglais
+        'Individus et sociétés',                    // 4
+        'Sciences',                                 // 5
+        'Mathématiques',                            // 6
+        'Art visuel',                               // 7 - Arts
+        'Éducation physique et sportive',           // 8
+        'Design'                                    // 9
+    ];
+    
+    return contributions.sort((a, b) => {
+        const indexA = subjectOrder.indexOf(a.subjectSelected);
+        const indexB = subjectOrder.indexOf(b.subjectSelected);
+        
+        // Si une matière n'est pas dans la liste, la mettre à la fin
+        const orderA = indexA === -1 ? 999 : indexA;
+        const orderB = indexB === -1 ? 999 : indexB;
+        
+        return orderA - orderB;
+    });
+}
+
 function prepareWordData(studentName, className, studentBirthdate, originalContributions) {
     // Utiliser le nom complet pour le document Word
     const fullName = getFullStudentName(studentName);
@@ -462,7 +488,11 @@ function prepareWordData(studentName, className, studentBirthdate, originalContr
         contributionsBySubject: []
     };
     
-    for (const c of originalContributions) {
+    // Trier les contributions selon l'ordre pédagogique
+    const sortedContributions = sortSubjectsByOrder([...originalContributions]);
+    console.log('📚 Ordre des matières dans le Word:', sortedContributions.map(c => c.subjectSelected));
+    
+    for (const c of sortedContributions) {
         const comm = c.communicationEvaluation || [];
         documentData.atlSummaryTable.push({
             subject: c.subjectSelected,
