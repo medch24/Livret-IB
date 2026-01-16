@@ -57,3 +57,82 @@ body{font-family:'Roboto',sans-serif;margin:0;padding:0;background-color:#f8f9fa
     font-weight: 500;
     background-color: #f8f9fa;
 }
+
+/* Styles pour les cartes de matières */
+.subjects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+    padding: 10px;
+}
+
+.subject-card {
+    background: white;
+    border: 2px solid #dee2e6;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.subject-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: #007bff;
+}
+
+.subject-card.selected {
+    background: linear-gradient(135deg, #4e54c8, #8f94fb);
+    color: white;
+    border-color: #4e54c8;
+}
+
+.subject-card.completed {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white;
+    border-color: #28a745;
+}
+
+.subject-card.completed::after {
+    content: "✓";
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.subject-card h3 {
+    margin: 10px 0 5px 0;
+    font-size: 1em;
+    font-weight: 500;
+}
+
+.subject-card .subject-icon {
+    font-size: 2em;
+    margin-bottom: 10px;
+}
+
+.subject-card.selected .subject-icon,
+.subject-card.completed .subject-icon {
+    filter: brightness(0) invert(1);
+}
+
+@media (max-width: 768px) {
+    .subjects-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 10px;
+    }
+    
+    .subject-card {
+        padding: 15px;
+    }
+    
+    .subject-card h3 {
+        font-size: 0.9em;
+    }
+}

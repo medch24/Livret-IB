@@ -32,7 +32,7 @@ const submitButton = document.getElementById('submitButton');
 const teacherNameInput = document.getElementById('teacherName');
 const classSelector = document.getElementById('classSelector');
 const studentSelector = document.getElementById('studentSelector');
-const subjectSelector = document.getElementById('subjectSelector');
+const subjectsGrid = document.getElementById('subjectsGrid');
 const dataContainer = document.getElementById('dataContainer');
 const studentBirthdateInput = document.getElementById('studentBirthdate');
 
@@ -497,7 +497,7 @@ function handleStudentChange(value) {
     }
 }
 
-function handleSubjectChange(value) {
+async function handleSubjectChange(value) {
     currentData.subjectSelected = value;
     resetOnSubjectChange();
     if (value) {
@@ -517,7 +517,10 @@ function handleSubjectChange(value) {
         
         contributionEntrySections.style.display = "block";
         dataContainer.style.display = "none";
-        fetchData();
+        
+        // NOUVEAU: Charger automatiquement les données si elles existent
+        console.log('🔄 Chargement automatique des données pour:', value);
+        await fetchData();
         
         if (!isArabicSubject) {
             updateCriteriaTableDynamically();
@@ -745,25 +748,98 @@ function populateStudents() {
     studentSelector.value = currentData.studentSelected || "";
 }
 
-function populateSubjects() {
+// Icons pour chaque matière
+const subjectIcons = {
+    "Mathématiques": "📐",
+    "Individus et sociétés": "🌍",
+    "Langue et littérature": "📚",
+    "Design": "🎨",
+    "Sciences": "🔬",
+    "Art visuel": "🖼️",
+    "Éducation physique et sportive": "⚽",
+    "Acquisition de langue (Anglais)": "🇬🇧",
+    "Acquisition de langue (اللغة العربية)": "🇸🇦"
+};
+
+// Stocker les matières complétées par élève
+let completedSubjects = {};
+
+async function populateSubjects() {
     const classSelected = currentData.classSelected;
     const studentSelected = currentData.studentSelected;
-    subjectSelector.innerHTML = "<option value=''>-- Sélectionnez une matière --</option>";
+    const subjectsGrid = document.getElementById("subjectsGrid");
+    
+    if (!subjectsGrid) {
+        console.error("Element subjectsGrid not found");
+        return;
+    }
+    
+    subjectsGrid.innerHTML = "";
     
     if (classSelected && studentSelected && subjectsByClass[classSelected]) {
+        // Récupérer les contributions existantes pour cet élève
+        try {
+            const response = await fetch(`/api/fetchData?classSelected=${classSelected}&studentSelected=${studentSelected}`);
+            const data = await response.json();
+            
+            // Marquer les matières avec des contributions
+            completedSubjects[studentSelected] = {};
+            if (data && Array.isArray(data)) {
+                data.forEach(contrib => {
+                    if (contrib.subjectSelected) {
+                        completedSubjects[studentSelected][contrib.subjectSelected] = true;
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Erreur lors de la récupération des contributions:", error);
+        }
+        
+        // Créer les cartes de matières
         subjectsByClass[classSelected].forEach(subject => {
-            const option = document.createElement("option");
-            option.value = subject;
-            option.textContent = subject;
-            subjectSelector.appendChild(option);
+            const card = document.createElement("div");
+            card.className = "subject-card";
+            
+            // Marquer comme complétée si elle a déjà une contribution
+            const isCompleted = completedSubjects[studentSelected] && completedSubjects[studentSelected][subject];
+            if (isCompleted) {
+                card.classList.add("completed");
+            }
+            
+            // Marquer comme sélectionnée si c'est la matière actuelle
+            if (currentData.subjectSelected === subject) {
+                card.classList.add("selected");
+            }
+            
+            const icon = subjectIcons[subject] || "📖";
+            
+            card.innerHTML = `
+                <div class="subject-icon">${icon}</div>
+                <h3>${subject}</h3>
+            `;
+            
+            card.onclick = () => handleSubjectCardClick(subject);
+            
+            subjectsGrid.appendChild(card);
         });
         
         document.getElementById("step2").style.display = "block";
     } else {
         document.getElementById("step2").style.display = "none";
     }
+}
+
+function handleSubjectCardClick(subject) {
+    // Retirer la classe 'selected' de toutes les cartes
+    document.querySelectorAll('.subject-card').forEach(card => {
+        card.classList.remove('selected');
+    });
     
-    subjectSelector.value = currentData.subjectSelected || "";
+    // Ajouter la classe 'selected' à la carte cliquée
+    event.target.closest('.subject-card').classList.add('selected');
+    
+    // Appeler handleSubjectChange avec la matière sélectionnée
+    handleSubjectChange(subject);
 }
 
 function updateCriteriaTableHeaders() {
